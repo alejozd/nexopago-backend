@@ -13,7 +13,8 @@ uses
   NexoPago.WebModule in 'NexoPago\Backend\NexoPago.WebModule.pas' {NexoPagoWebModule: TWebModule},
   NexoPago.Controllers.Ordenes in 'NexoPago\Backend\NexoPago.Controllers.Ordenes.pas',
   NexoPago.DTOs in 'NexoPago\Backend\NexoPago.DTOs.pas',
-  NexoPago.Services in 'NexoPago\Backend\NexoPago.Services.pas';
+  NexoPago.Services in 'NexoPago\Backend\NexoPago.Services.pas',
+  NexoPago.Database in 'NexoPago\Backend\NexoPago.Database.pas';
 
 {$R *.res}
 
