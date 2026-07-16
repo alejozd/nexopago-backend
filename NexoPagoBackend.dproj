@@ -107,13 +107,14 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="NexoPago\Backend\NexoPago.WebModule.pas">
+        <DCCReference Include="NexoPago.DTOs.pas"/>
+        <DCCReference Include="NexoPago.Services.pas"/>
+        <DCCReference Include="NexoPago.WebModule.pas">
             <Form>NexoPagoWebModule</Form>
+            <FormType>dfm</FormType>
             <DesignClass>TWebModule</DesignClass>
         </DCCReference>
-        <DCCReference Include="NexoPago\Backend\NexoPago.Controllers.Ordenes.pas"/>
-        <DCCReference Include="NexoPago\Backend\NexoPago.DTOs.pas"/>
-        <DCCReference Include="NexoPago\Backend\NexoPago.Services.pas"/>
+        <DCCReference Include="NexoPago.Controllers.Ordenes.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
