@@ -422,6 +422,48 @@ type
     property OrdenesPorEstado: TObjectList<TOrdenEstadoCountDTO> read fOrdenesPorEstado;
   end;
 
+  // Fila de GET /api/reportes/cartera. diasAntiguedad/rangoAntiguedad se
+  // calculan en Delphi a partir de FECHA_ORDEN (no hay FECHA_VENCIMIENTO en
+  // el schema, confirmado con el usuario).
+  [MVCNameCase(ncCamelCase)]
+  TCarteraItemDTO = class
+  private
+    fID: Int64;
+    fNumeroOrden: String;
+    fFechaOrden: TDate;
+    fProveedorNombre: String;
+    fValorTotal: Currency;
+    fMontoPagado: Currency;
+    fSaldoPendiente: Currency;
+    fDiasAntiguedad: Integer;
+    fRangoAntiguedad: String;
+  public
+    property ID: Int64 read fID write fID;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    property FechaOrden: TDate read fFechaOrden write fFechaOrden;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property ValorTotal: Currency read fValorTotal write fValorTotal;
+    property MontoPagado: Currency read fMontoPagado write fMontoPagado;
+    property SaldoPendiente: Currency read fSaldoPendiente write fSaldoPendiente;
+    property DiasAntiguedad: Integer read fDiasAntiguedad write fDiasAntiguedad;
+    property RangoAntiguedad: String read fRangoAntiguedad write fRangoAntiguedad;
+  end;
+
+  // Fila de GET /api/reportes/cartera/por-proveedor.
+  [MVCNameCase(ncCamelCase)]
+  TCarteraProveedorDTO = class
+  private
+    fProveedorID: Int64;
+    fProveedorNombre: String;
+    fCantidadOrdenes: Int64;
+    fSaldoPendienteTotal: Currency;
+  public
+    property ProveedorID: Int64 read fProveedorID write fProveedorID;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property CantidadOrdenes: Int64 read fCantidadOrdenes write fCantidadOrdenes;
+    property SaldoPendienteTotal: Currency read fSaldoPendienteTotal write fSaldoPendienteTotal;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation

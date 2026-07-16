@@ -38,7 +38,8 @@ uses
   NexoPago.Services.EntradasMercancia,
   NexoPago.Services.Usuarios,
   NexoPago.Services.Permisos,
-  NexoPago.Services.Dashboard;
+  NexoPago.Services.Dashboard,
+  NexoPago.Services.Reportes;
 
 type
   THealthService = class(TInterfacedObject, IHealthService)
@@ -173,6 +174,7 @@ begin
   RegisterUsuariosServices(Container);
   RegisterPermisosServices(Container);
   RegisterDashboardServices(Container);
+  RegisterReportesServices(Container);
   // Aqu� iremos registrando el resto de nuestros servicios reales.
 end;
 

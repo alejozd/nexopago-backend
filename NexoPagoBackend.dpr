@@ -25,6 +25,7 @@ uses
   NexoPago.Services.Usuarios in 'NexoPago.Services.Usuarios.pas',
   NexoPago.Services.Permisos in 'NexoPago.Services.Permisos.pas',
   NexoPago.Services.Dashboard in 'NexoPago.Services.Dashboard.pas',
+  NexoPago.Services.Reportes in 'NexoPago.Services.Reportes.pas',
   NexoPago.Controllers.Ordenes in 'NexoPago.Controllers.Ordenes.pas',
   NexoPago.Controllers.Health in 'NexoPago.Controllers.Health.pas',
   NexoPago.Controllers.Proveedores in 'NexoPago.Controllers.Proveedores.pas',
@@ -33,7 +34,8 @@ uses
   NexoPago.Controllers.EntradasMercancia in 'NexoPago.Controllers.EntradasMercancia.pas',
   NexoPago.Controllers.Usuarios in 'NexoPago.Controllers.Usuarios.pas',
   NexoPago.Controllers.Permisos in 'NexoPago.Controllers.Permisos.pas',
-  NexoPago.Controllers.Dashboard in 'NexoPago.Controllers.Dashboard.pas';
+  NexoPago.Controllers.Dashboard in 'NexoPago.Controllers.Dashboard.pas',
+  NexoPago.Controllers.Reportes in 'NexoPago.Controllers.Reportes.pas';
 
 {$R *.res}
 

@@ -211,6 +211,46 @@ type
     function GetOrdenesPorEstado: TArray<TOrdenEstadoRow>;
   end;
 
+  TCarteraListRow = record
+    OrdenID: Int64;
+    NumeroOrden: String;
+    FechaOrden: TDate;
+    ProveedorNombre: String;
+    ValorTotal: Currency;
+    MontoPagado: Currency;
+    Saldo: Currency;
+  end;
+
+  TCarteraProveedorRow = record
+    ProveedorID: Int64;
+    ProveedorNombre: String;
+    CantidadOrdenes: Int64;
+    SaldoTotal: Currency;
+  end;
+
+  // Reporte de Cartera (3.8): igual que IDashboardRepository, toca ORDEN_COMPRA
+  // + ORDEN_COMPRA_DETALLE + RECIBO_CAJA_CHIPIS + PROVEEDOR a la vez -no una
+  // sola entidad- asi que es una interfaz propia, no IMVCRepository<T>.
+  IReportesRepository = interface
+    ['{564146C4-0C5E-4E56-B64C-AB012619D537}']
+    function GetCarteraCount: Int64;
+    // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
+    // (whitelist), nunca texto crudo del cliente.
+    function GetCarteraListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TCarteraListRow>;
+    function GetCarteraPorProveedorCount: Int64;
+    function GetCarteraPorProveedor(const AOffset, ALimit: Integer;
+      const ASortColumnSQL: String): TArray<TCarteraProveedorRow>;
+  end;
+
+  TReportesRepository = class(TInterfacedObject, IReportesRepository)
+  public
+    function GetCarteraCount: Int64;
+    function GetCarteraListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TCarteraListRow>;
+    function GetCarteraPorProveedorCount: Int64;
+    function GetCarteraPorProveedor(const AOffset, ALimit: Integer;
+      const ASortColumnSQL: String): TArray<TCarteraProveedorRow>;
+  end;
+
 implementation
 
 uses
@@ -662,6 +702,134 @@ begin
       begin
         LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
         LRow.Cantidad := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+const
+  // Saldo por orden (valorTotal - pagado), reutilizado en las 4 consultas de
+  // Cartera para no triplicar la logica de calculo.
+  cCarteraSaldoSubquery =
+    'SELECT OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.PROVEEDOR_ID, P.NOMBRE AS PROVEEDOR_NOMBRE, ' +
+    '  COALESCE((SELECT SUM(D.SUBTOTAL) FROM ORDEN_COMPRA_DETALLE D WHERE D.ORDEN_ID = OC.ORDEN_ID), 0) AS VALOR_TOTAL, ' +
+    '  COALESCE((SELECT SUM(R.MONTO) FROM RECIBO_CAJA_CHIPIS R WHERE R.ORDEN_ID = OC.ORDEN_ID AND R.ESTADO = ''ACTIVO''), 0) AS MONTO_PAGADO, ' +
+    '  COALESCE((SELECT SUM(D.SUBTOTAL) FROM ORDEN_COMPRA_DETALLE D WHERE D.ORDEN_ID = OC.ORDEN_ID), 0) - ' +
+    '  COALESCE((SELECT SUM(R.MONTO) FROM RECIBO_CAJA_CHIPIS R WHERE R.ORDEN_ID = OC.ORDEN_ID AND R.ESTADO = ''ACTIVO''), 0) AS SALDO ' +
+    'FROM ORDEN_COMPRA OC ' +
+    'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+    'WHERE OC.ESTADO <> ''ANULADA''';
+
+function TReportesRepository.GetCarteraCount: Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+    LQuery.SQL.Text := 'SELECT COUNT(*) AS CANTIDAD FROM (' + cCarteraSaldoSubquery + ') T WHERE T.SALDO > 0';
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TReportesRepository.GetCarteraListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL: String): TArray<TCarteraListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TCarteraListRow>;
+  LRow: TCarteraListRow;
+begin
+  LRows := TList<TCarteraListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+      LQuery.SQL.Text :=
+        'SELECT FIRST :flimit SKIP :foffset ' +
+        '  T.ORDEN_ID, T.NUMERO_ORDEN, T.FECHA_ORDEN, T.PROVEEDOR_NOMBRE, T.VALOR_TOTAL, T.MONTO_PAGADO, T.SALDO ' +
+        'FROM (' + cCarteraSaldoSubquery + ') T ' +
+        'WHERE T.SALDO > 0 ' +
+        'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.OrdenID := LQuery.FieldByName('ORDEN_ID').AsLargeInt;
+        LRow.NumeroOrden := LQuery.FieldByName('NUMERO_ORDEN').AsString;
+        LRow.FechaOrden := LQuery.FieldByName('FECHA_ORDEN').AsDateTime;
+        LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+        LRow.ValorTotal := LQuery.FieldByName('VALOR_TOTAL').AsCurrency;
+        LRow.MontoPagado := LQuery.FieldByName('MONTO_PAGADO').AsCurrency;
+        LRow.Saldo := LQuery.FieldByName('SALDO').AsCurrency;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TReportesRepository.GetCarteraPorProveedorCount: Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+    LQuery.SQL.Text :=
+      'SELECT COUNT(*) AS CANTIDAD FROM (' +
+      '  SELECT T.PROVEEDOR_ID FROM (' + cCarteraSaldoSubquery + ') T WHERE T.SALDO > 0 GROUP BY T.PROVEEDOR_ID' +
+      ') X';
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TReportesRepository.GetCarteraPorProveedor(const AOffset, ALimit: Integer;
+  const ASortColumnSQL: String): TArray<TCarteraProveedorRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TCarteraProveedorRow>;
+  LRow: TCarteraProveedorRow;
+begin
+  LRows := TList<TCarteraProveedorRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+      LQuery.SQL.Text :=
+        'SELECT FIRST :flimit SKIP :foffset ' +
+        '  T.PROVEEDOR_ID, T.PROVEEDOR_NOMBRE, COUNT(*) AS CANTIDAD_ORDENES, SUM(T.SALDO) AS SALDO_TOTAL ' +
+        'FROM (' + cCarteraSaldoSubquery + ') T ' +
+        'WHERE T.SALDO > 0 ' +
+        'GROUP BY T.PROVEEDOR_ID, T.PROVEEDOR_NOMBRE ' +
+        'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.ProveedorID := LQuery.FieldByName('PROVEEDOR_ID').AsLargeInt;
+        LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+        LRow.CantidadOrdenes := LQuery.FieldByName('CANTIDAD_ORDENES').AsLargeInt;
+        LRow.SaldoTotal := LQuery.FieldByName('SALDO_TOTAL').AsCurrency;
         LRows.Add(LRow);
         LQuery.Next;
       end;
