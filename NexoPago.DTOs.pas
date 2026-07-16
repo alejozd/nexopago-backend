@@ -252,6 +252,25 @@ type
     property Observaciones: NullableString read fObservaciones write fObservaciones;
   end;
 
+  // Entrada de POST /api/entradas. "completa" decide si la orden pasa a
+  // RECIBIDA o PARCIALMENTE_RECIBIDA (sin tracking de cantidades no hay forma
+  // de inferirlo solo, ver NexoPago.Services.EntradasMercancia).
+  [MVCNameCase(ncCamelCase)]
+  TEntradaCreateDTO = class
+  private
+    fOrdenID: Int64;
+    fNumeroEntradaHelisa: String;
+    fFechaEntrada: TDate;
+    fCompleta: Boolean;
+    fObservaciones: NullableString;
+  public
+    property OrdenID: Int64 read fOrdenID write fOrdenID;
+    property NumeroEntradaHelisa: String read fNumeroEntradaHelisa write fNumeroEntradaHelisa;
+    property FechaEntrada: TDate read fFechaEntrada write fFechaEntrada;
+    property Completa: Boolean read fCompleta write fCompleta;
+    property Observaciones: NullableString read fObservaciones write fObservaciones;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation

@@ -34,7 +34,8 @@ uses
   NexoPago.Entities,
   NexoPago.Services.Auth,
   NexoPago.Services.Recibos,
-  NexoPago.Services.Ordenes;
+  NexoPago.Services.Ordenes,
+  NexoPago.Services.EntradasMercancia;
 
 type
   THealthService = class(TInterfacedObject, IHealthService)
@@ -165,6 +166,7 @@ begin
   RegisterAuthServices(Container);
   RegisterRecibosServices(Container); // antes de Ordenes: TOrdenesService depende de IRecibosRepository
   RegisterOrdenesServices(Container);
+  RegisterEntradasMercanciaServices(Container);
   // Aqu� iremos registrando el resto de nuestros servicios reales.
 end;
 

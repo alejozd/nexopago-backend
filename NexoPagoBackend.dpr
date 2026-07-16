@@ -21,11 +21,13 @@ uses
   NexoPago.Services.Auth in 'NexoPago.Services.Auth.pas',
   NexoPago.Services.Recibos in 'NexoPago.Services.Recibos.pas',
   NexoPago.Services.Ordenes in 'NexoPago.Services.Ordenes.pas',
+  NexoPago.Services.EntradasMercancia in 'NexoPago.Services.EntradasMercancia.pas',
   NexoPago.Controllers.Ordenes in 'NexoPago.Controllers.Ordenes.pas',
   NexoPago.Controllers.Health in 'NexoPago.Controllers.Health.pas',
   NexoPago.Controllers.Proveedores in 'NexoPago.Controllers.Proveedores.pas',
   NexoPago.Controllers.Auth in 'NexoPago.Controllers.Auth.pas',
-  NexoPago.Controllers.Recibos in 'NexoPago.Controllers.Recibos.pas';
+  NexoPago.Controllers.Recibos in 'NexoPago.Controllers.Recibos.pas',
+  NexoPago.Controllers.EntradasMercancia in 'NexoPago.Controllers.EntradasMercancia.pas';
 
 {$R *.res}
 

@@ -101,6 +101,16 @@ type
     function GetTotalPagado(const AOrdenID: Int64): Currency;
   end;
 
+  // Sin custom finders por ahora: ENTRADAS_MERCANCIA no tiene listado propio
+  // ("no es un CRUD independiente", CONTEXTO_PROYECTO.md 3.6). Solo se crea
+  // desde el listado de Ordenes; el CRUD generico de IMVCRepository<T> basta.
+  IEntradasMercanciaRepository = interface(IMVCRepository<TEntradaMercancia>)
+    ['{72DE6C24-8744-40F2-A5F5-D5741CB0793A}']
+  end;
+
+  TEntradasMercanciaRepository = class(TMVCRepository<TEntradaMercancia>, IEntradasMercanciaRepository)
+  end;
+
 implementation
 
 uses
