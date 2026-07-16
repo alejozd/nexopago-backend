@@ -119,6 +119,7 @@
         </DCCReference>
         <DCCReference Include="NexoPago.Controllers.Ordenes.pas"/>
         <DCCReference Include="NexoPago.Controllers.Health.pas"/>
+        <DCCReference Include="NexoPago.Controllers.Proveedores.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

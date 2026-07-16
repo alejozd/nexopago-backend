@@ -18,7 +18,8 @@ uses
   NexoPago.Services in 'NexoPago.Services.pas',
   NexoPago.WebModule in 'NexoPago.WebModule.pas' {NexoPagoWebModule: TWebModule},
   NexoPago.Controllers.Ordenes in 'NexoPago.Controllers.Ordenes.pas',
-  NexoPago.Controllers.Health in 'NexoPago.Controllers.Health.pas';
+  NexoPago.Controllers.Health in 'NexoPago.Controllers.Health.pas',
+  NexoPago.Controllers.Proveedores in 'NexoPago.Controllers.Proveedores.pas';
 
 {$R *.res}
 

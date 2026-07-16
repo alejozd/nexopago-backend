@@ -15,7 +15,8 @@ uses
   MVCFramework.SQLGenerators.Firebird,
   NexoPago.Config,
   NexoPago.Controllers.Ordenes,
-  NexoPago.Controllers.Health; // <-- Referencia a los controllers
+  NexoPago.Controllers.Health,
+  NexoPago.Controllers.Proveedores; // <-- Referencia a los controllers
 
 type
   TNexoPagoWebModule = class(TWebModule)
@@ -45,6 +46,7 @@ begin
   // Registrar los Controladores (usando solo el nombre de la clase)
   fMVC.AddController(TOrdenesController);
   fMVC.AddController(THealthController);
+  fMVC.AddController(TProveedoresController);
 
   // Middlewares b�sicos
   fMVC.AddMiddleware(TMVCTraceMiddleware.Create);
