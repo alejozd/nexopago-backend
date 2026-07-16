@@ -13,13 +13,18 @@ type
   THealthController = class(TMVCController)
   private
     fHealthService: IHealthService;
+    fProveedoresService: IProveedoresService;
   public
     [MVCInject]
-    constructor Create(AHealthService: IHealthService); reintroduce;
+    constructor Create(AHealthService: IHealthService; AProveedoresService: IProveedoresService); reintroduce;
 
     [MVCPath('/health/db')]
     [MVCHTTPMethod([httpGET])]
     function GetHealthDB: IMVCResponse;
+
+    [MVCPath('/health/repository')]
+    [MVCHTTPMethod([httpGET])]
+    function GetHealthRepository: IMVCResponse;
   end;
 
 implementation
@@ -27,10 +32,11 @@ implementation
 uses
   NexoPago.DTOs;
 
-constructor THealthController.Create(AHealthService: IHealthService);
+constructor THealthController.Create(AHealthService: IHealthService; AProveedoresService: IProveedoresService);
 begin
   inherited Create;
   fHealthService := AHealthService;
+  fProveedoresService := AProveedoresService;
 end;
 
 function THealthController.GetHealthDB: IMVCResponse;
@@ -58,6 +64,28 @@ begin
     begin
       LStatus.Status := 'error';
       LStatus.Detail := 'Error al conectar a la base de datos: ' + E.Message;
+      Result := MVCResponseBuilder.StatusCode(HTTP_STATUS.InternalServerError).Body(LStatus).Build;
+    end;
+  end;
+end;
+
+function THealthController.GetHealthRepository: IMVCResponse;
+var
+  LStatus: THealthStatusDTO;
+  LCount: Int64;
+begin
+  LStatus := THealthStatusDTO.Create;
+  try
+    LCount := fProveedoresService.CountProveedores;
+    LStatus.Status := 'success';
+    LStatus.Detail := Format('Repositorio de PROVEEDOR operativo. %d registro(s) encontrado(s).', [LCount]);
+    Result := OKResponse(LStatus);
+    LStatus := nil; // OKResponse toma posesion del objeto
+  except
+    on E: Exception do
+    begin
+      LStatus.Status := 'error';
+      LStatus.Detail := 'Error al consultar el repositorio de PROVEEDOR: ' + E.Message;
       Result := MVCResponseBuilder.StatusCode(HTTP_STATUS.InternalServerError).Body(LStatus).Build;
     end;
   end;

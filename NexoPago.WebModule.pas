@@ -11,6 +11,9 @@ uses
   MVCFramework.Logger,
   MVCFramework.Middleware.Trace,
   MVCFramework.Middleware.CORS,
+  MVCFramework.Middleware.ActiveRecord,
+  MVCFramework.SQLGenerators.Firebird,
+  NexoPago.Config,
   NexoPago.Controllers.Ordenes,
   NexoPago.Controllers.Health; // <-- Referencia a los controllers
 
@@ -46,6 +49,9 @@ begin
   // Middlewares b�sicos
   fMVC.AddMiddleware(TMVCTraceMiddleware.Create);
   fMVC.AddMiddleware(TMVCCORSMiddleware.Create);
+  // Conexi�n por-request para ActiveRecord/IMVCRepository (requiere que
+  // NexoPago.Config.ConfigureDatabaseConnection ya haya sido llamado en el .dpr)
+  fMVC.AddMiddleware(TMVCActiveRecordMiddleware.Create(CON_DEF_NAME));
 end;
 
 procedure TNexoPagoWebModule.WebModuleDestroy(Sender: TObject);

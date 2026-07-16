@@ -12,6 +12,7 @@ uses
   Web.WebReq,
   Web.WebBroker,
   NexoPago.Config in 'NexoPago.Config.pas',
+  NexoPago.Entities in 'NexoPago.Entities.pas',
   NexoPago.Repository in 'NexoPago.Repository.pas',
   NexoPago.DTOs in 'NexoPago.DTOs.pas',
   NexoPago.Services in 'NexoPago.Services.pas',
