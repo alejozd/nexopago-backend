@@ -5,30 +5,52 @@ interface
 uses
   MVCFramework.Container;
 
-// Aquí iremos declarando nuestras interfaces de servicios en el futuro.
+type
+  IHealthService = interface
+    ['{9C824648-1CAC-438C-AF04-FE84E3DEA8DC}']
+    function DatabaseIsUp: Boolean;
+  end;
+
+// Aquï¿½ iremos declarando el resto de nuestras interfaces de servicios.
 // Ejemplo:
-// type
-//   IOrdenesService = interface
-//     ['{GUID-GENERADO-AQUI}']
-//     function CrearOrden(const AOrden: TOrdenCompraDTO): Integer;
-//   end;
+// IOrdenesService = interface
+//   ['{GUID-GENERADO-AQUI}']
+//   function CrearOrden(const AOrden: TOrdenCompraDTO): Integer;
+// end;
 
 // Procedimiento obligatorio para registrar servicios en DMVCFramework
 procedure RegisterServices(Container: IMVCServiceContainer);
 
 implementation
 
-// Aquí iremos implementando y registrando nuestros servicios reales.
-// Ejemplo:
-// procedure RegisterServices(Container: IMVCServiceContainer);
-// begin
-//   Container.RegisterType<TOrdenesService, IOrdenesService>(TRegistrationType.SingletonPerRequest);
-// end;
+uses
+  NexoPago.Repository;
+
+type
+  THealthService = class(TInterfacedObject, IHealthService)
+  private
+    fRepository: IHealthRepository;
+  public
+    constructor Create(ARepository: IHealthRepository);
+    function DatabaseIsUp: Boolean;
+  end;
+
+constructor THealthService.Create(ARepository: IHealthRepository);
+begin
+  inherited Create;
+  fRepository := ARepository;
+end;
+
+function THealthService.DatabaseIsUp: Boolean;
+begin
+  Result := fRepository.CheckConnection;
+end;
 
 procedure RegisterServices(Container: IMVCServiceContainer);
 begin
-  // Por ahora lo dejamos vacío, pero la estructura debe existir
-  // porque el archivo .dpr la llama.
+  Container.RegisterType(THealthRepository, IHealthRepository, TRegistrationType.SingletonPerRequest);
+  Container.RegisterType(THealthService, IHealthService, TRegistrationType.SingletonPerRequest);
+  // Aquï¿½ iremos registrando el resto de nuestros servicios reales.
 end;
 
 end.

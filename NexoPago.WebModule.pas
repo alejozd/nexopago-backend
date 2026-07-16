@@ -11,7 +11,8 @@ uses
   MVCFramework.Logger,
   MVCFramework.Middleware.Trace,
   MVCFramework.Middleware.CORS,
-  NexoPago.Controllers.Ordenes; // <-- Referencia al controller
+  NexoPago.Controllers.Ordenes,
+  NexoPago.Controllers.Health; // <-- Referencia a los controllers
 
 type
   TNexoPagoWebModule = class(TWebModule)
@@ -33,15 +34,16 @@ begin
   fMVC := TMVCEngine.Create(Self,
     procedure(Config: TMVCConfig)
     begin
-      // Configuración mínima y segura
+      // Configuraciï¿½n mï¿½nima y segura
       Config[TMVCConfigKey.AllowUnhandledAction] := 'false';
       Config[TMVCConfigKey.LoadSystemControllers] := 'true';
     end);
 
-  // Registrar el Controlador (usando solo el nombre de la clase)
+  // Registrar los Controladores (usando solo el nombre de la clase)
   fMVC.AddController(TOrdenesController);
+  fMVC.AddController(THealthController);
 
-  // Middlewares básicos
+  // Middlewares bï¿½sicos
   fMVC.AddMiddleware(TMVCTraceMiddleware.Create);
   fMVC.AddMiddleware(TMVCCORSMiddleware.Create);
 end;

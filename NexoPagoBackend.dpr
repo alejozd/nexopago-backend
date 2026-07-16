@@ -5,14 +5,19 @@
 uses
   System.SysUtils,
   MVCFramework.Logger,
+  MVCFramework.Commons,
+  MVCFramework.Container,
   Winapi.Windows,
   IdHTTPWebBrokerBridge,
   Web.WebReq,
   Web.WebBroker,
+  NexoPago.Config in 'NexoPago.Config.pas',
+  NexoPago.Repository in 'NexoPago.Repository.pas',
   NexoPago.DTOs in 'NexoPago.DTOs.pas',
   NexoPago.Services in 'NexoPago.Services.pas',
   NexoPago.WebModule in 'NexoPago.WebModule.pas' {NexoPagoWebModule: TWebModule},
-  NexoPago.Controllers.Ordenes in 'NexoPago.Controllers.Ordenes.pas';
+  NexoPago.Controllers.Ordenes in 'NexoPago.Controllers.Ordenes.pas',
+  NexoPago.Controllers.Health in 'NexoPago.Controllers.Health.pas';
 
 {$R *.res}
 
@@ -39,7 +44,14 @@ begin
     if WebRequestHandler <> nil then
       WebRequestHandler.WebModuleClass := WebModuleClass;
 
-    RunServer(8080);
+    // Conexión FireDAC (parámetros vienen de .env, nunca hardcodeados)
+    ConfigureDatabaseConnection;
+
+    // Registro de servicios en el contenedor DI, antes de arrancar el servidor
+    RegisterServices(DefaultMVCServiceContainer);
+    DefaultMVCServiceContainer.Build;
+
+    RunServer(dotEnv.Env('dmvc.server.port', 8080));
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);

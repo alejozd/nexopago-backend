@@ -27,6 +27,14 @@ Android/
 *.ib
 
 # ==========================================
+# CONFIGURACION / SECRETOS
+# ==========================================
+# Nunca subir credenciales reales. Se versiona solo .env.sample con valores vacios.
+.env
+.env.*
+!.env.sample
+
+# ==========================================
 # ARCHIVOS DE SISTEMA Y EDITORES
 # ==========================================
 Thumbs.db
