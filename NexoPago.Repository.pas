@@ -46,6 +46,31 @@ type
   TProductoRepository = class(TMVCRepository<TProducto>, IProductoRepository)
   end;
 
+  // Fila plana para el listado paginado de ordenes: cabecera + nombre del
+  // proveedor + total agregado, resueltos en una sola consulta SQL (join +
+  // SUM). Uso interno Repository -> Service; el Service la mapea a
+  // TOrdenCompraDTO antes de responder al cliente.
+  TOrdenCompraListRow = record
+    OrdenID: Int64;
+    NumeroOrden: String;
+    FechaOrden: TDate;
+    Estado: String;
+    ProveedorNombre: String;
+    ValorTotal: Currency;
+  end;
+
+  IOrdenesRepository = interface(IMVCRepository<TOrdenCompra>)
+    ['{9CEDA904-AF62-4709-89EC-EE2A5995E9D7}']
+    // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
+    // (whitelist), nunca texto crudo del cliente.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+  end;
+
+  TOrdenesRepository = class(TMVCRepository<TOrdenCompra>, IOrdenesRepository)
+  public
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+  end;
+
 implementation
 
 uses
@@ -106,6 +131,50 @@ begin
     Result := LRoles.ToArray;
   finally
     LRoles.Free;
+  end;
+end;
+
+function TOrdenesRepository.GetListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TOrdenCompraListRow>;
+  LRow: TOrdenCompraListRow;
+begin
+  LRows := TList<TOrdenCompraListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
+      LQuery.SQL.Text :=
+        'SELECT FIRST :flimit SKIP :foffset ' +
+        '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
+        '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL ' +
+        'FROM ORDEN_COMPRA OC ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
+        'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE ' +
+        'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.OrdenID := LQuery.FieldByName('ORDEN_ID').AsLargeInt;
+        LRow.NumeroOrden := LQuery.FieldByName('NUMERO_ORDEN').AsString;
+        LRow.FechaOrden := LQuery.FieldByName('FECHA_ORDEN').AsDateTime;
+        LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
+        LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+        LRow.ValorTotal := LQuery.FieldByName('VALOR_TOTAL').AsCurrency;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
   end;
 end;
 

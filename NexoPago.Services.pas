@@ -20,11 +20,6 @@ type
   end;
 
 // Aqu� iremos declarando el resto de nuestras interfaces de servicios.
-// Ejemplo:
-// IOrdenesService = interface
-//   ['{GUID-GENERADO-AQUI}']
-//   function CrearOrden(const AOrden: TOrdenCompraDTO): Integer;
-// end;
 
 // Procedimiento obligatorio para registrar servicios en DMVCFramework
 procedure RegisterServices(Container: IMVCServiceContainer);
@@ -37,7 +32,8 @@ uses
   System.Generics.Collections,
   NexoPago.Repository,
   NexoPago.Entities,
-  NexoPago.Services.Auth;
+  NexoPago.Services.Auth,
+  NexoPago.Services.Ordenes;
 
 type
   THealthService = class(TInterfacedObject, IHealthService)
@@ -166,6 +162,7 @@ begin
   Container.RegisterType(TProveedoresService, IProveedoresService, TRegistrationType.SingletonPerRequest);
 
   RegisterAuthServices(Container);
+  RegisterOrdenesServices(Container);
   // Aqu� iremos registrando el resto de nuestros servicios reales.
 end;
 

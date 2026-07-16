@@ -113,6 +113,7 @@
         <DCCReference Include="NexoPago.DTOs.pas"/>
         <DCCReference Include="NexoPago.Security.Password.pas"/>
         <DCCReference Include="NexoPago.Services.Auth.pas"/>
+        <DCCReference Include="NexoPago.Services.Ordenes.pas"/>
         <DCCReference Include="NexoPago.Services.pas"/>
         <DCCReference Include="NexoPago.WebModule.pas">
             <Form>NexoPagoWebModule</Form>

@@ -5,25 +5,70 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
-  MVCFramework.Logger;
+  NexoPago.Services.Ordenes,
+  NexoPago.DTOs;
 
 type
-  [MVCPath('/api')] // Ruta base del controlador
+  [MVCPath('/api')]
   TOrdenesController = class(TMVCController)
+  private
+    fOrdenesService: IOrdenesService;
   public
-    [MVCPath('/ordenes')] // Ruta del método (se une a la base: /api/ordenes)
+    [MVCInject]
+    constructor Create(AOrdenesService: IOrdenesService); reintroduce;
+
+    // Listado paginado para PrimeReact: page, rows, sortField, sortOrder
+    // -> { data: [...], totalRecords: N }. valorTotal viene agregado por
+    // Firebird (SUM de SUBTOTAL), nunca sumado en Delphi.
+    [MVCPath('/ordenes')]
     [MVCHTTPMethod([httpGET])]
-    [MVCProduces(TMVCMediaType.TEXT_PLAIN)]
-    function GetOrdenes: String;
+    function GetOrdenes(
+      const [MVCFromQueryString('page', 1)] APage: Integer;
+      const [MVCFromQueryString('rows', 20)] ARows: Integer;
+      const [MVCFromQueryString('sortField', '')] ASortField: String;
+      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
+
+    // Detalle completo: cabecera + lineas, cada una con su SUBTOTAL real
+    // (COMPUTED BY en Firebird).
+    [MVCPath('/ordenes/($id)')]
+    [MVCHTTPMethod([httpGET])]
+    function GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
+
+    // Cabecera + detalle en una unica transaccion FireDAC (ver
+    // TOrdenesService.CrearOrden).
+    [MVCPath('/ordenes')]
+    [MVCHTTPMethod([httpPOST])]
+    function CreateOrden(const [MVCFromBody] ADatos: TOrdenCompraCreateDTO): IMVCResponse;
   end;
 
 implementation
 
-function TOrdenesController.GetOrdenes: String;
+uses
+  System.SysUtils;
+
+constructor TOrdenesController.Create(AOrdenesService: IOrdenesService);
 begin
-  // Este mensaje aparecerá en la consola negra si la ruta funciona
-  LogI('--- ENTRANDO AL CONTROLADOR DE ORDENES CORRECTAMENTE ---');
-  Result := 'NexoPago Backend Funcionando Correctamente!';
+  inherited Create;
+  fOrdenesService := AOrdenesService;
+end;
+
+function TOrdenesController.GetOrdenes(const APage, ARows: Integer; const ASortField: String;
+  const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
+begin
+  Result := fOrdenesService.GetPaged(APage, ARows, ASortField, ASortOrder);
+end;
+
+function TOrdenesController.GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
+begin
+  Result := fOrdenesService.GetByID(id);
+end;
+
+function TOrdenesController.CreateOrden(const ADatos: TOrdenCompraCreateDTO): IMVCResponse;
+var
+  LNewID: Int64;
+begin
+  LNewID := fOrdenesService.CrearOrden(ADatos);
+  Result := CreatedResponse('/api/ordenes/' + LNewID.ToString, 'Orden creada correctamente');
 end;
 
 end.

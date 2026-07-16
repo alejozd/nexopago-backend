@@ -94,8 +94,119 @@ type
     property Roles: TArray<String> read fRoles write fRoles;
   end;
 
-// Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects)
-// por ejemplo: TOrdenCompraDTO, etc.
+  // Fila del listado paginado GET /api/ordenes. valorTotal es la suma de los
+  // SUBTOTAL de linea (calculados por Firebird), agregada en la consulta SQL
+  // del Repository, nunca sumada/calculada en Delphi.
+  [MVCNameCase(ncCamelCase)]
+  TOrdenCompraDTO = class
+  private
+    fID: Int64;
+    fNumeroOrden: String;
+    fFechaOrden: TDate;
+    fProveedorNombre: String;
+    fEstado: String;
+    fValorTotal: Currency;
+  public
+    property ID: Int64 read fID write fID;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    property FechaOrden: TDate read fFechaOrden write fFechaOrden;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property Estado: String read fEstado write fEstado;
+    property ValorTotal: Currency read fValorTotal write fValorTotal;
+  end;
+
+  // Linea de detalle para la respuesta de GET /api/ordenes/(id). Subtotal
+  // viene directo de TOrdenCompraDetalle.Subtotal (COMPUTED BY en Firebird).
+  [MVCNameCase(ncCamelCase)]
+  TOrdenCompraDetalleDTO = class
+  private
+    fID: Int64;
+    fProductoID: Int64;
+    fProductoDescripcion: String;
+    fCantidad: Currency;
+    fPrecioUnitario: Currency;
+    fSubtotal: Currency;
+  public
+    property ID: Int64 read fID write fID;
+    property ProductoID: Int64 read fProductoID write fProductoID;
+    property ProductoDescripcion: String read fProductoDescripcion write fProductoDescripcion;
+    property Cantidad: Currency read fCantidad write fCantidad;
+    property PrecioUnitario: Currency read fPrecioUnitario write fPrecioUnitario;
+    property Subtotal: Currency read fSubtotal write fSubtotal;
+  end;
+
+  // Respuesta de GET /api/ordenes/(id): cabecera + lineas completas.
+  [MVCNameCase(ncCamelCase)]
+  TOrdenCompraFullDTO = class
+  private
+    fID: Int64;
+    fNumeroOrden: String;
+    fFechaOrden: TDate;
+    fProveedorID: Int64;
+    fProveedorNombre: String;
+    fNumeroPedidoHelisa: NullableString;
+    fFechaPedidoHelisa: NullableTDate;
+    fTotalPedidoHelisa: NullableCurrency;
+    fObservaciones: NullableString;
+    fEstado: String;
+    fValorTotal: Currency;
+    fDetalles: TObjectList<TOrdenCompraDetalleDTO>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property ID: Int64 read fID write fID;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    property FechaOrden: TDate read fFechaOrden write fFechaOrden;
+    property ProveedorID: Int64 read fProveedorID write fProveedorID;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property NumeroPedidoHelisa: NullableString read fNumeroPedidoHelisa write fNumeroPedidoHelisa;
+    property FechaPedidoHelisa: NullableTDate read fFechaPedidoHelisa write fFechaPedidoHelisa;
+    property TotalPedidoHelisa: NullableCurrency read fTotalPedidoHelisa write fTotalPedidoHelisa;
+    property Observaciones: NullableString read fObservaciones write fObservaciones;
+    property Estado: String read fEstado write fEstado;
+    property ValorTotal: Currency read fValorTotal write fValorTotal;
+    [MVCListOf(TOrdenCompraDetalleDTO)]
+    property Detalles: TObjectList<TOrdenCompraDetalleDTO> read fDetalles;
+  end;
+
+  // Entrada de POST /api/ordenes: una linea nueva.
+  [MVCNameCase(ncCamelCase)]
+  TOrdenCompraLineaCreateDTO = class
+  private
+    fProductoID: Int64;
+    fCantidad: Currency;
+    fPrecioUnitario: Currency;
+  public
+    property ProductoID: Int64 read fProductoID write fProductoID;
+    property Cantidad: Currency read fCantidad write fCantidad;
+    property PrecioUnitario: Currency read fPrecioUnitario write fPrecioUnitario;
+  end;
+
+  // Entrada de POST /api/ordenes: cabecera + lineas.
+  [MVCNameCase(ncCamelCase)]
+  TOrdenCompraCreateDTO = class
+  private
+    fProveedorID: Int64;
+    fFechaOrden: TDate;
+    fNumeroPedidoHelisa: NullableString;
+    fFechaPedidoHelisa: NullableTDate;
+    fTotalPedidoHelisa: NullableCurrency;
+    fObservaciones: NullableString;
+    fDetalles: TObjectList<TOrdenCompraLineaCreateDTO>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property ProveedorID: Int64 read fProveedorID write fProveedorID;
+    property FechaOrden: TDate read fFechaOrden write fFechaOrden;
+    property NumeroPedidoHelisa: NullableString read fNumeroPedidoHelisa write fNumeroPedidoHelisa;
+    property FechaPedidoHelisa: NullableTDate read fFechaPedidoHelisa write fFechaPedidoHelisa;
+    property TotalPedidoHelisa: NullableCurrency read fTotalPedidoHelisa write fTotalPedidoHelisa;
+    property Observaciones: NullableString read fObservaciones write fObservaciones;
+    [MVCListOf(TOrdenCompraLineaCreateDTO)]
+    property Detalles: TObjectList<TOrdenCompraLineaCreateDTO> read fDetalles;
+  end;
+
+// Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation
 
@@ -108,6 +219,30 @@ end;
 destructor TPagedResultDTO<T>.Destroy;
 begin
   fData.Free;
+  inherited;
+end;
+
+constructor TOrdenCompraFullDTO.Create;
+begin
+  inherited Create;
+  fDetalles := TObjectList<TOrdenCompraDetalleDTO>.Create(True);
+end;
+
+destructor TOrdenCompraFullDTO.Destroy;
+begin
+  fDetalles.Free;
+  inherited;
+end;
+
+constructor TOrdenCompraCreateDTO.Create;
+begin
+  inherited Create;
+  fDetalles := TObjectList<TOrdenCompraLineaCreateDTO>.Create(True);
+end;
+
+destructor TOrdenCompraCreateDTO.Destroy;
+begin
+  fDetalles.Free;
   inherited;
 end;
 
