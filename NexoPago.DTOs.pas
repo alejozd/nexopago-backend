@@ -62,6 +62,38 @@ type
     property Activo: Boolean read fActivo write fActivo;
   end;
 
+  [MVCNameCase(ncCamelCase)]
+  TUsuarioRegistroDTO = class
+  private
+    fNombreUsuario: String;
+    fPassword: String;
+    fNombre: String;
+    fApellido: NullableString;
+    fCorreoElectronico: NullableString;
+  public
+    property NombreUsuario: String read fNombreUsuario write fNombreUsuario;
+    property Password: String read fPassword write fPassword;
+    property Nombre: String read fNombre write fNombre;
+    property Apellido: NullableString read fApellido write fApellido;
+    property CorreoElectronico: NullableString read fCorreoElectronico write fCorreoElectronico;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
+  TUsuarioMeDTO = class
+  private
+    fID: Int64;
+    fNombreUsuario: String;
+    fNombre: String;
+    fApellido: NullableString;
+    fRoles: TArray<String>;
+  public
+    property ID: Int64 read fID write fID;
+    property NombreUsuario: String read fNombreUsuario write fNombreUsuario;
+    property Nombre: String read fNombre write fNombre;
+    property Apellido: NullableString read fApellido write fApellido;
+    property Roles: TArray<String> read fRoles write fRoles;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects)
 // por ejemplo: TOrdenCompraDTO, etc.
 

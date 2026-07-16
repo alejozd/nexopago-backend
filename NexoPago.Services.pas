@@ -36,7 +36,8 @@ uses
   System.Math,
   System.Generics.Collections,
   NexoPago.Repository,
-  NexoPago.Entities;
+  NexoPago.Entities,
+  NexoPago.Services.Auth;
 
 type
   THealthService = class(TInterfacedObject, IHealthService)
@@ -163,6 +164,8 @@ begin
   Container.RegisterType(TProductoRepository, IProductoRepository, TRegistrationType.SingletonPerRequest);
 
   Container.RegisterType(TProveedoresService, IProveedoresService, TRegistrationType.SingletonPerRequest);
+
+  RegisterAuthServices(Container);
   // Aqu� iremos registrando el resto de nuestros servicios reales.
 end;
 
