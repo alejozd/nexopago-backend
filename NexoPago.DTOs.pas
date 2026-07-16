@@ -271,6 +271,110 @@ type
     property Observaciones: NullableString read fObservaciones write fObservaciones;
   end;
 
+  // Fila del listado paginado GET /api/usuarios. roles viene concatenado
+  // (Firebird LIST()) desde USUARIO_PERFIL/PERFIL.
+  [MVCNameCase(ncCamelCase)]
+  TUsuarioListDTO = class
+  private
+    fID: Int64;
+    fNombreUsuario: String;
+    fNombre: String;
+    fApellido: String;
+    fRoles: String;
+    fActivo: Boolean;
+    fFechaUltimoAcceso: NullableTDateTime;
+  public
+    property ID: Int64 read fID write fID;
+    property NombreUsuario: String read fNombreUsuario write fNombreUsuario;
+    property Nombre: String read fNombre write fNombre;
+    property Apellido: String read fApellido write fApellido;
+    property Roles: String read fRoles write fRoles;
+    property Activo: Boolean read fActivo write fActivo;
+    property FechaUltimoAcceso: NullableTDateTime read fFechaUltimoAcceso write fFechaUltimoAcceso;
+  end;
+
+  // Respuesta de GET /api/usuarios/resumen: las "tarjetas" de 3.9.
+  [MVCNameCase(ncCamelCase)]
+  TUsuariosResumenDTO = class
+  private
+    fTotal: Int64;
+    fActivos: Int64;
+    fTotalRoles: Int64;
+  public
+    property Total: Int64 read fTotal write fTotal;
+    property Activos: Int64 read fActivos write fActivos;
+    property TotalRoles: Int64 read fTotalRoles write fTotalRoles;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
+  TModuloDTO = class
+  private
+    fID: Int64;
+    fNombre: String;
+    fDescripcion: NullableString;
+    fActivo: Boolean;
+  public
+    property ID: Int64 read fID write fID;
+    property Nombre: String read fNombre write fNombre;
+    property Descripcion: NullableString read fDescripcion write fDescripcion;
+    property Activo: Boolean read fActivo write fActivo;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
+  TPerfilDTO = class
+  private
+    fID: Int64;
+    fNombre: String;
+    fDescripcion: NullableString;
+  public
+    property ID: Int64 read fID write fID;
+    property Nombre: String read fNombre write fNombre;
+    property Descripcion: NullableString read fDescripcion write fDescripcion;
+  end;
+
+  // Fila del listado GET /api/permisos. moduloNombre viene del join con MODULO.
+  [MVCNameCase(ncCamelCase)]
+  TPermisoDTO = class
+  private
+    fID: Int64;
+    fModuloID: Int64;
+    fModuloNombre: String;
+    fAccion: String;
+    fDescripcion: String;
+  public
+    property ID: Int64 read fID write fID;
+    property ModuloID: Int64 read fModuloID write fModuloID;
+    property ModuloNombre: String read fModuloNombre write fModuloNombre;
+    property Accion: String read fAccion write fAccion;
+    property Descripcion: String read fDescripcion write fDescripcion;
+  end;
+
+  // Fila de GET /api/perfiles/(id)/permisos: el catalogo completo de permisos
+  // con un flag por cada uno, listo para pintar la matriz de checkboxes.
+  [MVCNameCase(ncCamelCase)]
+  TPermisoMatrizItemDTO = class
+  private
+    fPermisoID: Int64;
+    fModuloNombre: String;
+    fAccion: String;
+    fAsignado: Boolean;
+  public
+    property PermisoID: Int64 read fPermisoID write fPermisoID;
+    property ModuloNombre: String read fModuloNombre write fModuloNombre;
+    property Accion: String read fAccion write fAccion;
+    property Asignado: Boolean read fAsignado write fAsignado;
+  end;
+
+  // Entrada de PUT /api/perfiles/(id)/permisos: reemplaza el conjunto
+  // completo de permisos asignados al perfil.
+  [MVCNameCase(ncCamelCase)]
+  TAsignarPermisosDTO = class
+  private
+    fPermisoIds: TArray<Int64>;
+  public
+    property PermisoIds: TArray<Int64> read fPermisoIds write fPermisoIds;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation

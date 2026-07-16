@@ -116,6 +116,8 @@
         <DCCReference Include="NexoPago.Services.Recibos.pas"/>
         <DCCReference Include="NexoPago.Services.Ordenes.pas"/>
         <DCCReference Include="NexoPago.Services.EntradasMercancia.pas"/>
+        <DCCReference Include="NexoPago.Services.Usuarios.pas"/>
+        <DCCReference Include="NexoPago.Services.Permisos.pas"/>
         <DCCReference Include="NexoPago.Services.pas"/>
         <DCCReference Include="NexoPago.WebModule.pas">
             <Form>NexoPagoWebModule</Form>
@@ -128,6 +130,8 @@
         <DCCReference Include="NexoPago.Controllers.Auth.pas"/>
         <DCCReference Include="NexoPago.Controllers.Recibos.pas"/>
         <DCCReference Include="NexoPago.Controllers.EntradasMercancia.pas"/>
+        <DCCReference Include="NexoPago.Controllers.Usuarios.pas"/>
+        <DCCReference Include="NexoPago.Controllers.Permisos.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

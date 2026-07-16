@@ -22,14 +22,39 @@ type
   // GUID a nivel de RTTI, por lo que el contenedor DI no puede registrar mas de una
   // en la misma instancia (EMVCContainerError: "Cannot register duplicated service").
   // Se define una interfaz propia por entidad, cada una con su GUID explicito.
+  // Fila plana para el listado paginado de usuarios: cabecera + roles
+  // concatenados (Firebird LIST()), resueltos en una sola consulta SQL.
+  TUsuarioListRow = record
+    UsuarioID: Int64;
+    NombreUsuario: String;
+    Nombre: String;
+    Apellido: String;
+    Roles: String;
+    Activo: Boolean;
+    FechaUltimoAcceso: TDateTime;
+    TieneUltimoAcceso: Boolean;
+  end;
+
+  TUsuariosResumenRow = record
+    Total: Int64;
+    Activos: Int64;
+    TotalRoles: Int64;
+  end;
+
   IUsuarioRepository = interface(IMVCRepository<TUsuario>)
     ['{A0EF8C79-29FF-436D-80EA-6B0D84705BFB}']
     function GetRoleNames(const AUsuarioID: Int64): TArray<String>;
+    // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
+    // (whitelist), nunca texto crudo del cliente.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TUsuarioListRow>;
+    function GetResumen: TUsuariosResumenRow;
   end;
 
   TUsuarioRepository = class(TMVCRepository<TUsuario>, IUsuarioRepository)
   public
     function GetRoleNames(const AUsuarioID: Int64): TArray<String>;
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TUsuarioListRow>;
+    function GetResumen: TUsuariosResumenRow;
   end;
 
   IProveedorRepository = interface(IMVCRepository<TProveedor>)
@@ -109,6 +134,48 @@ type
   end;
 
   TEntradasMercanciaRepository = class(TMVCRepository<TEntradaMercancia>, IEntradasMercanciaRepository)
+  end;
+
+  IModuloRepository = interface(IMVCRepository<TModulo>)
+    ['{27C18AE9-5759-434A-9167-BC3C9FB3F7FB}']
+  end;
+
+  TModuloRepository = class(TMVCRepository<TModulo>, IModuloRepository)
+  end;
+
+  IPerfilRepository = interface(IMVCRepository<TPerfil>)
+    ['{EC85A47F-F71A-4DED-9E6A-D847A0689A1E}']
+    // Permisos asignados actualmente a un perfil (PERFIL_PERMISO.PERMISO_ID).
+    function GetPermisoIds(const APerfilID: Int64): TArray<Int64>;
+    // Reemplaza el conjunto completo de permisos del perfil (DELETE + INSERT).
+    // Debe llamarse dentro de una transaccion abierta por el Service.
+    procedure SetPermisoIds(const APerfilID: Int64; const APermisoIds: TArray<Int64>);
+  end;
+
+  TPerfilRepository = class(TMVCRepository<TPerfil>, IPerfilRepository)
+  public
+    function GetPermisoIds(const APerfilID: Int64): TArray<Int64>;
+    procedure SetPermisoIds(const APerfilID: Int64; const APermisoIds: TArray<Int64>);
+  end;
+
+  // Fila plana para el listado de permisos: permiso + nombre del modulo,
+  // resueltos en una sola consulta SQL (join).
+  TPermisoListRow = record
+    PermisoID: Int64;
+    ModuloID: Int64;
+    ModuloNombre: String;
+    Accion: String;
+    Descripcion: String;
+  end;
+
+  IPermisoRepository = interface(IMVCRepository<TPermiso>)
+    ['{64923C9F-57E0-4824-886A-34CBCC9005A4}']
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TPermisoListRow>;
+  end;
+
+  TPermisoRepository = class(TMVCRepository<TPermiso>, IPermisoRepository)
+  public
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TPermisoListRow>;
   end;
 
 implementation
@@ -279,6 +346,170 @@ begin
     Result := LQuery.FieldByName('TOTAL_PAGADO').AsCurrency;
   finally
     LQuery.Free;
+  end;
+end;
+
+function TUsuarioRepository.GetListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL: String): TArray<TUsuarioListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TUsuarioListRow>;
+  LRow: TUsuarioListRow;
+begin
+  LRows := TList<TUsuarioListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection;
+      LQuery.SQL.Text :=
+        'SELECT FIRST :flimit SKIP :foffset ' +
+        '  U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO, ' +
+        '  COALESCE(LIST(P.NOMBRE, '', ''), '''') AS ROLES ' +
+        'FROM USUARIO U ' +
+        'LEFT JOIN USUARIO_PERFIL UP ON UP.USUARIO_ID = U.USUARIO_ID ' +
+        'LEFT JOIN PERFIL P ON P.PERFIL_ID = UP.PERFIL_ID ' +
+        'GROUP BY U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO ' +
+        'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.UsuarioID := LQuery.FieldByName('USUARIO_ID').AsLargeInt;
+        LRow.NombreUsuario := LQuery.FieldByName('NOMBRE_USUARIO').AsString;
+        LRow.Nombre := LQuery.FieldByName('NOMBRE').AsString;
+        LRow.Apellido := LQuery.FieldByName('APELLIDO').AsString;
+        LRow.Roles := LQuery.FieldByName('ROLES').AsString;
+        // FireDAC no coacciona SMALLINT -> Boolean en lectura (.AsBoolean
+        // lanza "Cannot access field as type Boolean" aqui); se compara
+        // directo el entero, igual que hace ACTIVO=1 en GetResumen.
+        LRow.Activo := LQuery.FieldByName('ACTIVO').AsInteger <> 0;
+        LRow.TieneUltimoAcceso := not LQuery.FieldByName('FECHA_ULTIMO_ACCESO').IsNull;
+        if LRow.TieneUltimoAcceso then
+          LRow.FechaUltimoAcceso := LQuery.FieldByName('FECHA_ULTIMO_ACCESO').AsDateTime;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TUsuarioRepository.GetResumen: TUsuariosResumenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT ' +
+      '  (SELECT COUNT(*) FROM USUARIO) AS TOTAL, ' +
+      '  (SELECT COUNT(*) FROM USUARIO WHERE ACTIVO = 1) AS ACTIVOS, ' +
+      '  (SELECT COUNT(*) FROM PERFIL) AS TOTAL_ROLES ' +
+      'FROM RDB$DATABASE';
+    LQuery.Open;
+    Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
+    Result.Activos := LQuery.FieldByName('ACTIVOS').AsLargeInt;
+    Result.TotalRoles := LQuery.FieldByName('TOTAL_ROLES').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TPerfilRepository.GetPermisoIds(const APerfilID: Int64): TArray<Int64>;
+var
+  LQuery: TFDQuery;
+  LIds: TList<Int64>;
+begin
+  LIds := TList<Int64>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection;
+      LQuery.SQL.Text := 'SELECT PERMISO_ID FROM PERFIL_PERMISO WHERE PERFIL_ID = :perfilId';
+      LQuery.ParamByName('perfilId').AsLargeInt := APerfilID;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LIds.Add(LQuery.FieldByName('PERMISO_ID').AsLargeInt);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LIds.ToArray;
+  finally
+    LIds.Free;
+  end;
+end;
+
+procedure TPerfilRepository.SetPermisoIds(const APerfilID: Int64; const APermisoIds: TArray<Int64>);
+var
+  LQuery: TFDQuery;
+  LPermisoID: Int64;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+
+    LQuery.SQL.Text := 'DELETE FROM PERFIL_PERMISO WHERE PERFIL_ID = :perfilId';
+    LQuery.ParamByName('perfilId').AsLargeInt := APerfilID;
+    LQuery.ExecSQL;
+
+    LQuery.SQL.Text := 'INSERT INTO PERFIL_PERMISO (PERFIL_ID, PERMISO_ID) VALUES (:perfilId, :permisoId)';
+    for LPermisoID in APermisoIds do
+    begin
+      LQuery.ParamByName('perfilId').AsLargeInt := APerfilID;
+      LQuery.ParamByName('permisoId').AsLargeInt := LPermisoID;
+      LQuery.ExecSQL;
+    end;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TPermisoRepository.GetListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL: String): TArray<TPermisoListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TPermisoListRow>;
+  LRow: TPermisoListRow;
+begin
+  LRows := TList<TPermisoListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection;
+      LQuery.SQL.Text :=
+        'SELECT FIRST :flimit SKIP :foffset ' +
+        '  P.PERMISO_ID, P.MODULO_ID, M.NOMBRE AS MODULO_NOMBRE, P.ACCION, P.DESCRIPCION ' +
+        'FROM PERMISO P ' +
+        'INNER JOIN MODULO M ON M.MODULO_ID = P.MODULO_ID ' +
+        'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.PermisoID := LQuery.FieldByName('PERMISO_ID').AsLargeInt;
+        LRow.ModuloID := LQuery.FieldByName('MODULO_ID').AsLargeInt;
+        LRow.ModuloNombre := LQuery.FieldByName('MODULO_NOMBRE').AsString;
+        LRow.Accion := LQuery.FieldByName('ACCION').AsString;
+        LRow.Descripcion := LQuery.FieldByName('DESCRIPCION').AsString;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
   end;
 end;
 
