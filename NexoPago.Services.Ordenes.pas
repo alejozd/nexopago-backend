@@ -36,12 +36,13 @@ type
     fOrdenesRepository: IOrdenesRepository;
     fProveedorRepository: IProveedorRepository;
     fProductoRepository: IProductoRepository;
+    fRecibosRepository: IRecibosRepository;
     function BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
     procedure ValidarDatosCreacion(const ADatos: TOrdenCompraCreateDTO);
     function SiguienteNumeroOrden: String;
   public
     constructor Create(AOrdenesRepository: IOrdenesRepository; AProveedorRepository: IProveedorRepository;
-      AProductoRepository: IProductoRepository);
+      AProductoRepository: IProductoRepository; ARecibosRepository: IRecibosRepository);
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
@@ -49,12 +50,14 @@ type
   end;
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
-  AProveedorRepository: IProveedorRepository; AProductoRepository: IProductoRepository);
+  AProveedorRepository: IProveedorRepository; AProductoRepository: IProductoRepository;
+  ARecibosRepository: IRecibosRepository);
 begin
   inherited Create;
   fOrdenesRepository := AOrdenesRepository;
   fProveedorRepository := AProveedorRepository;
   fProductoRepository := AProductoRepository;
+  fRecibosRepository := ARecibosRepository;
 end;
 
 function TOrdenesService.BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
@@ -145,6 +148,7 @@ begin
         Result.TotalPedidoHelisa := LOrden.TotalPedidoHelisa;
         Result.Observaciones := LOrden.Observaciones;
         Result.Estado := LOrden.Estado;
+        Result.MontoPagado := fRecibosRepository.GetTotalPagado(LOrden.ID.ValueOrDefault);
 
         for LDetalle in LOrden.Detalles do
         begin
@@ -164,6 +168,7 @@ begin
           Result.ValorTotal := Result.ValorTotal + LDetalle.Subtotal;
           Result.Detalles.Add(LLineaDTO);
         end;
+        Result.SaldoPendiente := Result.ValorTotal - Result.MontoPagado;
       except
         Result.Free;
         raise;

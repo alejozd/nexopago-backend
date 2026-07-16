@@ -71,6 +71,36 @@ type
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
   end;
 
+  // Fila plana para el listado paginado de recibos: cabecera + numero de
+  // orden + nombre del proveedor, resueltos en una sola consulta SQL (join).
+  TReciboCajaListRow = record
+    ReciboID: Int64;
+    NumeroRecibo: String;
+    FechaRecibo: TDate;
+    NumeroOrden: String;
+    ProveedorNombre: String;
+    Monto: Currency;
+    TipoPago: String;
+    Estado: String;
+  end;
+
+  IRecibosRepository = interface(IMVCRepository<TReciboCajaChipis>)
+    ['{2C83B391-95D4-4F8D-BBED-2EFECD61CCE0}']
+    // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
+    // (whitelist), nunca texto crudo del cliente.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TReciboCajaListRow>;
+    // SUM(MONTO) de recibos ACTIVO para una orden. Fuente de verdad unica
+    // para "pagado"/"saldo pendiente", usada tanto por Ordenes (detalle)
+    // como por Recibos (validacion al crear).
+    function GetTotalPagado(const AOrdenID: Int64): Currency;
+  end;
+
+  TRecibosRepository = class(TMVCRepository<TReciboCajaChipis>, IRecibosRepository)
+  public
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TReciboCajaListRow>;
+    function GetTotalPagado(const AOrdenID: Int64): Currency;
+  end;
+
 implementation
 
 uses
@@ -175,6 +205,70 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TRecibosRepository.GetListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL: String): TArray<TReciboCajaListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TReciboCajaListRow>;
+  LRow: TReciboCajaListRow;
+begin
+  LRows := TList<TReciboCajaListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
+      LQuery.SQL.Text :=
+        'SELECT FIRST :flimit SKIP :foffset ' +
+        '  R.RECIBO_ID, R.NUMERO_RECIBO, R.FECHA_RECIBO, R.MONTO, R.TIPO_PAGO, R.ESTADO, ' +
+        '  OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE ' +
+        'FROM RECIBO_CAJA_CHIPIS R ' +
+        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = R.ORDEN_ID ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.ReciboID := LQuery.FieldByName('RECIBO_ID').AsLargeInt;
+        LRow.NumeroRecibo := LQuery.FieldByName('NUMERO_RECIBO').AsString;
+        LRow.FechaRecibo := LQuery.FieldByName('FECHA_RECIBO').AsDateTime;
+        LRow.NumeroOrden := LQuery.FieldByName('NUMERO_ORDEN').AsString;
+        LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+        LRow.Monto := LQuery.FieldByName('MONTO').AsCurrency;
+        LRow.TipoPago := LQuery.FieldByName('TIPO_PAGO').AsString;
+        LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TRecibosRepository.GetTotalPagado(const AOrdenID: Int64): Currency;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT COALESCE(SUM(MONTO), 0) AS TOTAL_PAGADO ' +
+      'FROM RECIBO_CAJA_CHIPIS ' +
+      'WHERE ORDEN_ID = :ordenId AND ESTADO = ''ACTIVO''';
+    LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
+    LQuery.Open;
+    Result := LQuery.FieldByName('TOTAL_PAGADO').AsCurrency;
+  finally
+    LQuery.Free;
   end;
 end;
 

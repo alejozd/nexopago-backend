@@ -33,6 +33,7 @@ uses
   NexoPago.Repository,
   NexoPago.Entities,
   NexoPago.Services.Auth,
+  NexoPago.Services.Recibos,
   NexoPago.Services.Ordenes;
 
 type
@@ -162,6 +163,7 @@ begin
   Container.RegisterType(TProveedoresService, IProveedoresService, TRegistrationType.SingletonPerRequest);
 
   RegisterAuthServices(Container);
+  RegisterRecibosServices(Container); // antes de Ordenes: TOrdenesService depende de IRecibosRepository
   RegisterOrdenesServices(Container);
   // Aqu� iremos registrando el resto de nuestros servicios reales.
 end;

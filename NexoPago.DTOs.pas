@@ -150,6 +150,8 @@ type
     fObservaciones: NullableString;
     fEstado: String;
     fValorTotal: Currency;
+    fMontoPagado: Currency;
+    fSaldoPendiente: Currency;
     fDetalles: TObjectList<TOrdenCompraDetalleDTO>;
   public
     constructor Create;
@@ -165,6 +167,11 @@ type
     property Observaciones: NullableString read fObservaciones write fObservaciones;
     property Estado: String read fEstado write fEstado;
     property ValorTotal: Currency read fValorTotal write fValorTotal;
+    // "Panel derecho" de 3.5.B / 3.7.B: mismo calculo (SUM de recibos ACTIVO,
+    // ver IRecibosRepository.GetTotalPagado) usado tanto en el detalle de la
+    // orden como en el formulario de creacion de un recibo para esa orden.
+    property MontoPagado: Currency read fMontoPagado write fMontoPagado;
+    property SaldoPendiente: Currency read fSaldoPendiente write fSaldoPendiente;
     [MVCListOf(TOrdenCompraDetalleDTO)]
     property Detalles: TObjectList<TOrdenCompraDetalleDTO> read fDetalles;
   end;
@@ -204,6 +211,45 @@ type
     property Observaciones: NullableString read fObservaciones write fObservaciones;
     [MVCListOf(TOrdenCompraLineaCreateDTO)]
     property Detalles: TObjectList<TOrdenCompraLineaCreateDTO> read fDetalles;
+  end;
+
+  // Fila del listado paginado GET /api/recibos.
+  [MVCNameCase(ncCamelCase)]
+  TReciboCajaDTO = class
+  private
+    fID: Int64;
+    fNumeroRecibo: String;
+    fFechaRecibo: TDate;
+    fNumeroOrden: String;
+    fProveedorNombre: String;
+    fMonto: Currency;
+    fTipoPago: String;
+    fEstado: String;
+  public
+    property ID: Int64 read fID write fID;
+    property NumeroRecibo: String read fNumeroRecibo write fNumeroRecibo;
+    property FechaRecibo: TDate read fFechaRecibo write fFechaRecibo;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property Monto: Currency read fMonto write fMonto;
+    property TipoPago: String read fTipoPago write fTipoPago;
+    property Estado: String read fEstado write fEstado;
+  end;
+
+  // Entrada de POST /api/recibos. tipoPago NO se recibe del cliente: lo
+  // calcula el Service comparando monto contra el saldo pendiente real.
+  [MVCNameCase(ncCamelCase)]
+  TReciboCreateDTO = class
+  private
+    fOrdenID: Int64;
+    fFechaRecibo: TDate;
+    fMonto: Currency;
+    fObservaciones: NullableString;
+  public
+    property OrdenID: Int64 read fOrdenID write fOrdenID;
+    property FechaRecibo: TDate read fFechaRecibo write fFechaRecibo;
+    property Monto: Currency read fMonto write fMonto;
+    property Observaciones: NullableString read fObservaciones write fObservaciones;
   end;
 
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
