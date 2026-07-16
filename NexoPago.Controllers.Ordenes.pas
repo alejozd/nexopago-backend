@@ -56,7 +56,7 @@ begin
           LQuery.Open;
 
           LResponse.AddPair('status', 'success');
-          LResponse.AddPair('message', 'Conexión a la base de datos de NexoPago establecida de forma exitosa.');
+          LResponse.AddPair('message', 'Conexion a la base de datos de NexoPago establecida de forma exitosa.');
           LResponse.AddPair('test_query_result', TJSONNumber.Create(LQuery.Fields[0].AsInteger));
         finally
           LQuery.Free;
