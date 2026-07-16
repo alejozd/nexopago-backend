@@ -14,6 +14,12 @@ type
     // Retorna el RECIBO_ID recien creado. tipoPago se calcula en el Service,
     // nunca se acepta del cliente.
     function CrearRecibo(const ADatos: TReciboCreateDTO): Int64;
+    // No revierte nada manualmente: montoPagado/saldoPendiente se calculan en
+    // vivo con SUM(MONTO) WHERE ESTADO='ACTIVO' (ver GetTotalPagado), asi que
+    // marcar el recibo como ANULADO ya lo excluye de esa suma. Tampoco toca
+    // ORDEN_COMPRA.ESTADO: ese campo sigue el estado de recepcion de
+    // mercancia, no el de pagos.
+    procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String);
   end;
 
 procedure RegisterRecibosServices(Container: IMVCServiceContainer);
@@ -41,6 +47,7 @@ type
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
     function CrearRecibo(const ADatos: TReciboCreateDTO): Int64;
+    procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String);
   end;
 
 constructor TRecibosService.Create(ARecibosRepository: IRecibosRepository; AOrdenesRepository: IOrdenesRepository);
@@ -190,6 +197,42 @@ begin
       end;
     finally
       LOrden.Free;
+    end;
+    LConn.Commit;
+  except
+    LConn.Rollback;
+    raise;
+  end;
+end;
+
+procedure TRecibosService.AnularRecibo(const AReciboID: Int64; const AMotivo: String);
+var
+  LConn: TFDConnection;
+  LRecibo: TReciboCajaChipis;
+  LMotivo: String;
+begin
+  LConn := TMVCActiveRecord.CurrentConnection;
+  LConn.StartTransaction;
+  try
+    LRecibo := fRecibosRepository.GetByPK(AReciboID, False);
+    if LRecibo = nil then
+      raise EMVCException.Create(HTTP_STATUS.NotFound, 'Recibo no encontrado');
+    try
+      if LRecibo.Estado = 'ANULADO' then
+        raise EMVCException.Create(HTTP_STATUS.BadRequest, 'El recibo ya esta anulado');
+
+      LRecibo.Estado := 'ANULADO';
+      LMotivo := Trim(AMotivo);
+      if LMotivo <> '' then
+      begin
+        if LRecibo.Observaciones.HasValue and (LRecibo.Observaciones.Value <> '') then
+          LRecibo.Observaciones := LRecibo.Observaciones.Value + ' | Anulacion: ' + LMotivo
+        else
+          LRecibo.Observaciones := 'Anulacion: ' + LMotivo;
+      end;
+      fRecibosRepository.Update(LRecibo);
+    finally
+      LRecibo.Free;
     end;
     LConn.Commit;
   except

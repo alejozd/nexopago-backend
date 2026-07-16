@@ -33,6 +33,13 @@ type
     [MVCPath('/recibos')]
     [MVCHTTPMethod([httpPOST])]
     function CreateRecibo(const [MVCFromBody] ADatos: TReciboCreateDTO): IMVCResponse;
+
+    // No revierte nada manualmente: montoPagado/saldoPendiente de la orden
+    // se recalculan solos porque solo suman recibos ACTIVO.
+    [MVCPath('/recibos/($id)/anular')]
+    [MVCHTTPMethod([httpPUT])]
+    function AnularRecibo(const id: Int64;
+      const [MVCFromQueryString('motivo', '')] AMotivo: String): IMVCResponse;
   end;
 
 implementation
@@ -58,6 +65,12 @@ var
 begin
   LNewID := fRecibosService.CrearRecibo(ADatos);
   Result := CreatedResponse('/api/recibos/' + LNewID.ToString, 'Recibo creado correctamente');
+end;
+
+function TRecibosController.AnularRecibo(const id: Int64; const AMotivo: String): IMVCResponse;
+begin
+  fRecibosService.AnularRecibo(id, AMotivo);
+  Result := OKResponse('Recibo anulado correctamente');
 end;
 
 end.
