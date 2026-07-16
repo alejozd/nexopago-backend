@@ -375,6 +375,53 @@ type
     property PermisoIds: TArray<Int64> read fPermisoIds write fPermisoIds;
   end;
 
+  [MVCNameCase(ncCamelCase)]
+  TPagoMensualDTO = class
+  private
+    fPeriodo: String;
+    fTotal: Currency;
+  public
+    // Formato ISO 'YYYY-MM': el frontend decide como mostrarlo (nombre de
+    // mes, locale, etc.), aqui no se formatea nada dependiente de idioma.
+    property Periodo: String read fPeriodo write fPeriodo;
+    property Total: Currency read fTotal write fTotal;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
+  TOrdenEstadoCountDTO = class
+  private
+    fEstado: String;
+    fCantidad: Int64;
+  public
+    property Estado: String read fEstado write fEstado;
+    property Cantidad: Int64 read fCantidad write fCantidad;
+  end;
+
+  // Respuesta de GET /api/dashboard (3.3): 4 KPIs + datos de los 2 graficos.
+  // La tabla "ultimos recibos" no esta aqui: se resuelve reutilizando
+  // GET /api/recibos?rows=5&sortField=fechaRecibo&sortOrder=-1.
+  [MVCNameCase(ncCamelCase)]
+  TDashboardDTO = class
+  private
+    fOrdenesPendientes: Int64;
+    fRecibosCreados: Int64;
+    fPagosPendientes: Int64;
+    fValorTotalCartera: Currency;
+    fPagosMensuales: TObjectList<TPagoMensualDTO>;
+    fOrdenesPorEstado: TObjectList<TOrdenEstadoCountDTO>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property OrdenesPendientes: Int64 read fOrdenesPendientes write fOrdenesPendientes;
+    property RecibosCreados: Int64 read fRecibosCreados write fRecibosCreados;
+    property PagosPendientes: Int64 read fPagosPendientes write fPagosPendientes;
+    property ValorTotalCartera: Currency read fValorTotalCartera write fValorTotalCartera;
+    [MVCListOf(TPagoMensualDTO)]
+    property PagosMensuales: TObjectList<TPagoMensualDTO> read fPagosMensuales;
+    [MVCListOf(TOrdenEstadoCountDTO)]
+    property OrdenesPorEstado: TObjectList<TOrdenEstadoCountDTO> read fOrdenesPorEstado;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation
@@ -412,6 +459,20 @@ end;
 destructor TOrdenCompraCreateDTO.Destroy;
 begin
   fDetalles.Free;
+  inherited;
+end;
+
+constructor TDashboardDTO.Create;
+begin
+  inherited Create;
+  fPagosMensuales := TObjectList<TPagoMensualDTO>.Create(True);
+  fOrdenesPorEstado := TObjectList<TOrdenEstadoCountDTO>.Create(True);
+end;
+
+destructor TDashboardDTO.Destroy;
+begin
+  fPagosMensuales.Free;
+  fOrdenesPorEstado.Free;
   inherited;
 end;
 

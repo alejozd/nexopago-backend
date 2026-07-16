@@ -178,6 +178,39 @@ type
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TPermisoListRow>;
   end;
 
+  TPagoMensualRow = record
+    Anio: Integer;
+    Mes: Integer;
+    Total: Currency;
+  end;
+
+  TOrdenEstadoRow = record
+    Estado: String;
+    Cantidad: Int64;
+  end;
+
+  // Datos agregados de GET /api/dashboard. Toca ORDEN_COMPRA,
+  // ORDEN_COMPRA_DETALLE y RECIBO_CAJA_CHIPIS a la vez -no una sola entidad-
+  // asi que no extiende IMVCRepository<T> como los demas: interfaz propia,
+  // igual que IHealthRepository.
+  IDashboardRepository = interface
+    ['{22F150F3-3862-429A-B9F5-EC3DA56E2E65}']
+    function GetOrdenesPendientes: Int64;
+    function GetRecibosCreadosDesde(const AFechaInicio: TDate): Int64;
+    procedure GetCarteraResumen(out APagosPendientes: Int64; out AValorTotalCartera: Currency);
+    function GetPagosMensuales(const AFechaInicio: TDate): TArray<TPagoMensualRow>;
+    function GetOrdenesPorEstado: TArray<TOrdenEstadoRow>;
+  end;
+
+  TDashboardRepository = class(TInterfacedObject, IDashboardRepository)
+  public
+    function GetOrdenesPendientes: Int64;
+    function GetRecibosCreadosDesde(const AFechaInicio: TDate): Int64;
+    procedure GetCarteraResumen(out APagosPendientes: Int64; out AValorTotalCartera: Currency);
+    function GetPagosMensuales(const AFechaInicio: TDate): TArray<TPagoMensualRow>;
+    function GetOrdenesPorEstado: TArray<TOrdenEstadoRow>;
+  end;
+
 implementation
 
 uses
@@ -185,6 +218,7 @@ uses
   System.Generics.Collections,
   FireDAC.Comp.Client,
   FireDAC.Stan.Param,
+  MVCFramework.ActiveRecord,
   NexoPago.Config;
 
 function THealthRepository.CheckConnection: Boolean;
@@ -501,6 +535,133 @@ begin
         LRow.ModuloNombre := LQuery.FieldByName('MODULO_NOMBRE').AsString;
         LRow.Accion := LQuery.FieldByName('ACCION').AsString;
         LRow.Descripcion := LQuery.FieldByName('DESCRIPCION').AsString;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TDashboardRepository.GetOrdenesPendientes: Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+    LQuery.SQL.Text :=
+      'SELECT COUNT(*) AS CANTIDAD FROM ORDEN_COMPRA ' +
+      'WHERE ESTADO IN (''BORRADOR'', ''PENDIENTE'', ''PARCIALMENTE_RECIBIDA'')';
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TDashboardRepository.GetRecibosCreadosDesde(const AFechaInicio: TDate): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+    LQuery.SQL.Text :=
+      'SELECT COUNT(*) AS CANTIDAD FROM RECIBO_CAJA_CHIPIS ' +
+      'WHERE ESTADO = ''ACTIVO'' AND FECHA_RECIBO >= :fechaInicio';
+    LQuery.ParamByName('fechaInicio').AsDate := AFechaInicio;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+procedure TDashboardRepository.GetCarteraResumen(out APagosPendientes: Int64; out AValorTotalCartera: Currency);
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+    LQuery.SQL.Text :=
+      'SELECT ' +
+      '  COUNT(CASE WHEN T.SALDO > 0 THEN 1 END) AS CANT_PENDIENTES, ' +
+      '  COALESCE(SUM(T.SALDO), 0) AS VALOR_CARTERA ' +
+      'FROM ( ' +
+      '  SELECT OC.ORDEN_ID, ' +
+      '    COALESCE((SELECT SUM(D.SUBTOTAL) FROM ORDEN_COMPRA_DETALLE D WHERE D.ORDEN_ID = OC.ORDEN_ID), 0) - ' +
+      '    COALESCE((SELECT SUM(R.MONTO) FROM RECIBO_CAJA_CHIPIS R WHERE R.ORDEN_ID = OC.ORDEN_ID AND R.ESTADO = ''ACTIVO''), 0) AS SALDO ' +
+      '  FROM ORDEN_COMPRA OC ' +
+      '  WHERE OC.ESTADO <> ''ANULADA'' ' +
+      ') T';
+    LQuery.Open;
+    APagosPendientes := LQuery.FieldByName('CANT_PENDIENTES').AsLargeInt;
+    AValorTotalCartera := LQuery.FieldByName('VALOR_CARTERA').AsCurrency;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TDashboardRepository.GetPagosMensuales(const AFechaInicio: TDate): TArray<TPagoMensualRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TPagoMensualRow>;
+  LRow: TPagoMensualRow;
+begin
+  LRows := TList<TPagoMensualRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+      LQuery.SQL.Text :=
+        'SELECT EXTRACT(YEAR FROM FECHA_RECIBO) AS ANIO, EXTRACT(MONTH FROM FECHA_RECIBO) AS MES, ' +
+        '  SUM(MONTO) AS TOTAL ' +
+        'FROM RECIBO_CAJA_CHIPIS ' +
+        'WHERE ESTADO = ''ACTIVO'' AND FECHA_RECIBO >= :fechaInicio ' +
+        'GROUP BY 1, 2 ' +
+        'ORDER BY 1, 2';
+      LQuery.ParamByName('fechaInicio').AsDate := AFechaInicio;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.Anio := LQuery.FieldByName('ANIO').AsInteger;
+        LRow.Mes := LQuery.FieldByName('MES').AsInteger;
+        LRow.Total := LQuery.FieldByName('TOTAL').AsCurrency;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TDashboardRepository.GetOrdenesPorEstado: TArray<TOrdenEstadoRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TOrdenEstadoRow>;
+  LRow: TOrdenEstadoRow;
+begin
+  LRows := TList<TOrdenEstadoRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+      LQuery.SQL.Text := 'SELECT ESTADO, COUNT(*) AS CANTIDAD FROM ORDEN_COMPRA GROUP BY ESTADO ORDER BY ESTADO';
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
+        LRow.Cantidad := LQuery.FieldByName('CANTIDAD').AsLargeInt;
         LRows.Add(LRow);
         LQuery.Next;
       end;
