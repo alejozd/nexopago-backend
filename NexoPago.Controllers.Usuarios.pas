@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.Usuarios,
   NexoPago.DTOs;
 
@@ -19,6 +20,7 @@ type
 
     // Listado paginado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N }.
+    [MVCSwagSummary('Usuarios', 'Listado paginado de usuarios')]
     [MVCPath('/usuarios')]
     [MVCHTTPMethod([httpGET])]
     function GetUsuarios(
@@ -28,6 +30,7 @@ type
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TUsuarioListDTO>;
 
     // Tarjetas de 3.9: Total, Activos, Roles.
+    [MVCSwagSummary('Usuarios', 'Resumen de usuarios: total, activos y roles')]
     [MVCPath('/usuarios/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TUsuariosResumenDTO;

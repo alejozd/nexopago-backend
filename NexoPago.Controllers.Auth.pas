@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.Auth,
   NexoPago.DTOs;
 
@@ -20,11 +21,17 @@ type
     // TEMPORAL: crea el primer usuario de prueba mientras no existe una
     // pantalla de administracion. Sin proteccion JWT (OnRequest no lo exige).
     // TODO: eliminar o proteger antes de exponer el backend fuera de localhost.
+    [MVCSwagSummary('Auth', 'Crea un usuario de prueba (temporal, sin proteccion JWT)')]
     [MVCPath('/register')]
     [MVCHTTPMethod([httpPOST])]
     function Register(const [MVCFromBody] ADatos: TUsuarioRegistroDTO): IMVCResponse;
 
-    // Endpoint protegido de prueba del Paso 4: exige JWT valido.
+    // Endpoint protegido de prueba del Paso 4: exige JWT valido. El atributo
+    // [MVCRequiresAuthentication] es solo documental para Swagger (candado en
+    // la UI) -la proteccion real la decide OnRequest en TNexoPagoAuthHandler,
+    // no este atributo (verificado en el Paso 4).
+    [MVCSwagSummary('Auth', 'Datos del usuario autenticado (usuario, nombre, roles)')]
+    [MVCRequiresAuthentication]
     [MVCPath('/me')]
     [MVCHTTPMethod([httpGET])]
     function GetMe: TUsuarioMeDTO;

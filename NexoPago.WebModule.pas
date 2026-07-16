@@ -14,6 +14,9 @@ uses
   MVCFramework.Middleware.CORS,
   MVCFramework.Middleware.ActiveRecord,
   MVCFramework.Middleware.JWT,
+  MVCFramework.Middleware.Swagger,
+  MVCFramework.Middleware.StaticFiles,
+  MVCFramework.Swagger.Commons,
   MVCFramework.JWT,
   MVCFramework.SQLGenerators.Firebird,
   NexoPago.Config,
@@ -48,6 +51,7 @@ implementation
 procedure TNexoPagoWebModule.WebModuleCreate(Sender: TObject);
 var
   LClaimsSetup: TJWTClaimsSetup;
+  LSwagInfo: TMVCSwaggerInfo;
 begin
   fMVC := TMVCEngine.Create(Self,
     procedure(Config: TMVCConfig)
@@ -72,6 +76,22 @@ begin
   // Middlewares b�sicos
   fMVC.AddMiddleware(TMVCTraceMiddleware.Create);
   fMVC.AddMiddleware(TMVCCORSMiddleware.Create);
+
+  // Swagger: solo intercepta /api/swagger.json exacto (OnBeforeRouting con
+  // match exacto de PathInfo), no toca BD ni afecta ninguna otra ruta -no
+  // importa el orden respecto a ActiveRecord/JWT, a diferencia de esos dos-.
+  LSwagInfo.Title := 'NexoPago API';
+  LSwagInfo.Version := 'v1';
+  LSwagInfo.Description :=
+    'API del modulo CHIPIS: Ordenes de Compra, Recibos de Caja, Entradas de ' +
+    'Mercancia, Usuarios/Permisos, Dashboard y Reportes de Cartera.';
+  LSwagInfo.ContactName := 'NexoPago';
+  fMVC.AddMiddleware(TMVCSwaggerMiddleware.Create(fMVC, LSwagInfo, '/api/swagger.json'));
+
+  // Sirve los archivos estaticos de Swagger UI (HTML/JS/CSS) en /swagger.
+  // '.\www' se resuelve relativo al directorio del .exe si no existe
+  // relativo al directorio de trabajo actual (ver TMVCStaticFilesMiddleware.Create).
+  fMVC.AddMiddleware(TMVCStaticFilesMiddleware.Create('/swagger', '.\www', 'index.html'));
 
   // DEBE ir ANTES del middleware JWT: ambos usan el hook OnBeforeRouting y
   // /api/auth/login lo intercepta el propio TMVCJWTAuthenticationMiddleware.

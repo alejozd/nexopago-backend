@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.EntradasMercancia,
   NexoPago.DTOs;
 
@@ -19,6 +20,7 @@ type
     [MVCInject]
     constructor Create(AEntradasService: IEntradasMercanciaService); reintroduce;
 
+    [MVCSwagSummary('Entradas', 'Registra la entrada de mercancia de una orden de compra')]
     [MVCPath('/entradas')]
     [MVCHTTPMethod([httpPOST])]
     function CreateEntrada(const [MVCFromBody] ADatos: TEntradaCreateDTO): IMVCResponse;

@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.Recibos,
   NexoPago.DTOs;
 
@@ -19,6 +20,7 @@ type
 
     // Listado paginado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N }.
+    [MVCSwagSummary('Recibos', 'Listado paginado de recibos de caja')]
     [MVCPath('/recibos')]
     [MVCHTTPMethod([httpGET])]
     function GetRecibos(
@@ -30,12 +32,14 @@ type
     // El estado financiero (valorTotal/montoPagado/saldoPendiente) para el
     // panel derecho de este formulario se consulta con el endpoint que ya
     // existe: GET /api/ordenes/(id).
+    [MVCSwagSummary('Recibos', 'Registra un recibo de caja contra una orden de compra')]
     [MVCPath('/recibos')]
     [MVCHTTPMethod([httpPOST])]
     function CreateRecibo(const [MVCFromBody] ADatos: TReciboCreateDTO): IMVCResponse;
 
     // No revierte nada manualmente: montoPagado/saldoPendiente de la orden
     // se recalculan solos porque solo suman recibos ACTIVO.
+    [MVCSwagSummary('Recibos', 'Anula un recibo de caja (no lo elimina)')]
     [MVCPath('/recibos/($id)/anular')]
     [MVCHTTPMethod([httpPUT])]
     function AnularRecibo(const id: Int64;

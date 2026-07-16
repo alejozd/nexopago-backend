@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.Ordenes,
   NexoPago.DTOs;
 
@@ -20,6 +21,7 @@ type
     // Listado paginado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N }. valorTotal viene agregado por
     // Firebird (SUM de SUBTOTAL), nunca sumado en Delphi.
+    [MVCSwagSummary('Ordenes', 'Listado paginado de ordenes de compra')]
     [MVCPath('/ordenes')]
     [MVCHTTPMethod([httpGET])]
     function GetOrdenes(
@@ -30,12 +32,14 @@ type
 
     // Detalle completo: cabecera + lineas, cada una con su SUBTOTAL real
     // (COMPUTED BY en Firebird).
+    [MVCSwagSummary('Ordenes', 'Detalle de una orden de compra (cabecera + lineas)')]
     [MVCPath('/ordenes/($id)')]
     [MVCHTTPMethod([httpGET])]
     function GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
 
     // Cabecera + detalle en una unica transaccion FireDAC (ver
     // TOrdenesService.CrearOrden).
+    [MVCSwagSummary('Ordenes', 'Crea una orden de compra con sus lineas de detalle')]
     [MVCPath('/ordenes')]
     [MVCHTTPMethod([httpPOST])]
     function CreateOrden(const [MVCFromBody] ADatos: TOrdenCompraCreateDTO): IMVCResponse;

@@ -6,6 +6,7 @@ uses
   System.Generics.Collections,
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.Permisos,
   NexoPago.DTOs;
 
@@ -22,6 +23,7 @@ type
     [MVCInject]
     constructor Create(APermisosService: IPermisosService); reintroduce;
 
+    [MVCSwagSummary('Permisos', 'Listado paginado de modulos (catalogo)')]
     [MVCPath('/modulos')]
     [MVCHTTPMethod([httpGET])]
     function GetModulos(
@@ -30,6 +32,7 @@ type
       const [MVCFromQueryString('sortField', '')] ASortField: String;
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TModuloDTO>;
 
+    [MVCSwagSummary('Permisos', 'Listado paginado de perfiles (catalogo)')]
     [MVCPath('/perfiles')]
     [MVCHTTPMethod([httpGET])]
     function GetPerfiles(
@@ -38,6 +41,7 @@ type
       const [MVCFromQueryString('sortField', '')] ASortField: String;
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TPerfilDTO>;
 
+    [MVCSwagSummary('Permisos', 'Listado paginado de permisos (catalogo)')]
     [MVCPath('/permisos')]
     [MVCHTTPMethod([httpGET])]
     function GetPermisos(
@@ -48,10 +52,12 @@ type
 
     // Catalogo completo de permisos + flag "asignado", para pintar la matriz
     // de un perfil especifico. No es un listado paginado (ver el Service).
+    [MVCSwagSummary('Permisos', 'Matriz de permisos de un perfil (catalogo completo + flag asignado)')]
     [MVCPath('/perfiles/($id)/permisos')]
     [MVCHTTPMethod([httpGET])]
     function GetMatriz(const id: Int64): TObjectList<TPermisoMatrizItemDTO>;
 
+    [MVCSwagSummary('Permisos', 'Asigna la lista de permisos de un perfil')]
     [MVCPath('/perfiles/($id)/permisos')]
     [MVCHTTPMethod([httpPUT])]
     function AsignarPermisos(const id: Int64; const [MVCFromBody] ADatos: TAsignarPermisosDTO): IMVCResponse;

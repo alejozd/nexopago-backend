@@ -6,6 +6,7 @@ uses
   System.SysUtils,
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services;
 
 type
@@ -18,10 +19,12 @@ type
     [MVCInject]
     constructor Create(AHealthService: IHealthService; AProveedoresService: IProveedoresService); reintroduce;
 
+    [MVCSwagSummary('Health', 'Verifica la conexion FireDAC a NexoPagoDB')]
     [MVCPath('/health/db')]
     [MVCHTTPMethod([httpGET])]
     function GetHealthDB: IMVCResponse;
 
+    [MVCSwagSummary('Health', 'Verifica el repositorio generico de ActiveRecord (PROVEEDOR)')]
     [MVCPath('/health/repository')]
     [MVCHTTPMethod([httpGET])]
     function GetHealthRepository: IMVCResponse;

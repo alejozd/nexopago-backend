@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services,
   NexoPago.DTOs;
 
@@ -19,6 +20,7 @@ type
 
     // Contrato de listado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N } (ver CLAUDE.md)
+    [MVCSwagSummary('Proveedores', 'Listado paginado de proveedores')]
     [MVCPath('/proveedores')]
     [MVCHTTPMethod([httpGET])]
     function GetProveedores(

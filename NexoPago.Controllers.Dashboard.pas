@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.Dashboard,
   NexoPago.DTOs;
 
@@ -19,6 +20,7 @@ type
     [MVCInject]
     constructor Create(ADashboardService: IDashboardService); reintroduce;
 
+    [MVCSwagSummary('Dashboard', 'KPIs y graficas del dashboard principal')]
     [MVCPath('/dashboard')]
     [MVCHTTPMethod([httpGET])]
     function GetDashboard: TDashboardDTO;

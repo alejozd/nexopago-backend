@@ -5,6 +5,7 @@ interface
 uses
   MVCFramework,
   MVCFramework.Commons,
+  MVCFramework.Swagger.Commons,
   NexoPago.Services.Reportes,
   NexoPago.DTOs;
 
@@ -18,6 +19,7 @@ type
     constructor Create(AReportesService: IReportesService); reintroduce;
 
     // Ordenes con saldo pendiente + antiguedad (3.8).
+    [MVCSwagSummary('Reportes', 'Cartera: ordenes con saldo pendiente y antiguedad')]
     [MVCPath('/cartera')]
     [MVCHTTPMethod([httpGET])]
     function GetCartera(
@@ -27,6 +29,7 @@ type
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TCarteraItemDTO>;
 
     // Total por proveedor (3.8).
+    [MVCSwagSummary('Reportes', 'Cartera agrupada por proveedor')]
     [MVCPath('/cartera/por-proveedor')]
     [MVCHTTPMethod([httpGET])]
     function GetCarteraPorProveedor(
