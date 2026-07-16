@@ -24,7 +24,6 @@ type
   TDatabaseConnection = class
   private
     class constructor CreateClass;
-    class destructor DestroyClass;
   public
     class function GetConnection(const AConnectionName: string = ''): TFDConnection;
   end;
@@ -55,14 +54,6 @@ begin
     FDManager.Active := True;
   finally
     LParams.Free;
-  end;
-end;
-
-class destructor TDatabaseConnection.DestroyClass;
-begin
-  if Assigned(FDManager) then
-  begin
-    FDManager.Active := False;
   end;
 end;
 
