@@ -44,6 +44,12 @@ type
     [MVCHTTPMethod([httpPUT])]
     function AnularRecibo(const id: Int64;
       const [MVCFromQueryString('motivo', '')] AMotivo: String): IMVCResponse;
+
+    // Tarjetas KPI del listado: Total, Activos, Anulados, Monto total.
+    [MVCSwagSummary('Recibos', 'Resumen de recibos: total, activos, anulados y monto total')]
+    [MVCPath('/recibos/resumen')]
+    [MVCHTTPMethod([httpGET])]
+    function GetResumen: TRecibosResumenDTO;
   end;
 
 implementation
@@ -76,6 +82,11 @@ function TRecibosController.AnularRecibo(const id: Int64; const AMotivo: String)
 begin
   fRecibosService.AnularRecibo(id, AMotivo, GetCurrentUserID(Context));
   Result := OKResponse('Recibo anulado correctamente');
+end;
+
+function TRecibosController.GetResumen: TRecibosResumenDTO;
+begin
+  Result := fRecibosService.GetResumen;
 end;
 
 end.

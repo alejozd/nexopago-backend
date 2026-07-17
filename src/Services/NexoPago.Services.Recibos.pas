@@ -20,6 +20,8 @@ type
     // ORDEN_COMPRA.ESTADO: ese campo sigue el estado de recepcion de
     // mercancia, no el de pagos.
     procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String; const AUsuarioID: Int64);
+    // Tarjetas KPI del listado: Total, Activos, Anulados, Monto total (ACTIVO).
+    function GetResumen: TRecibosResumenDTO;
   end;
 
 procedure RegisterRecibosServices(Container: IMVCServiceContainer);
@@ -48,6 +50,7 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
     function CrearRecibo(const ADatos: TReciboCreateDTO; const AUsuarioID: Int64): Int64;
     procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String; const AUsuarioID: Int64);
+    function GetResumen: TRecibosResumenDTO;
   end;
 
 constructor TRecibosService.Create(ARecibosRepository: IRecibosRepository; AOrdenesRepository: IOrdenesRepository);
@@ -244,6 +247,18 @@ begin
     LConn.Rollback;
     raise;
   end;
+end;
+
+function TRecibosService.GetResumen: TRecibosResumenDTO;
+var
+  LRow: TRecibosResumenRow;
+begin
+  LRow := fRecibosRepository.GetResumen;
+  Result := TRecibosResumenDTO.Create;
+  Result.Total := LRow.Total;
+  Result.Activos := LRow.Activos;
+  Result.Anulados := LRow.Anulados;
+  Result.MontoTotal := LRow.MontoTotal;
 end;
 
 procedure RegisterRecibosServices(Container: IMVCServiceContainer);
