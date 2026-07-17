@@ -27,10 +27,13 @@ type
     [MVCHTTPMethod([httpGET])]
     function GetPedidosRecientes: TObjectList<THelisaPedidoResumenDTO>;
 
+    // numero va por querystring (no como segmento de ruta): DOCUMENTO en
+    // Helisa suele traer espacios internos (ej. "JN  00001604"), poco fiables
+    // como segmento de path aunque se URL-encoden.
     [MVCSwagSummary('HelisaPedidos', 'Detalle de productos de un pedido de Helisa')]
-    [MVCPath('/helisa/pedidos/($numero)')]
+    [MVCPath('/helisa/pedidos/detalle')]
     [MVCHTTPMethod([httpGET])]
-    function GetDetallePedido(const numero: String): THelisaPedidoDetalleDTO;
+    function GetDetallePedido(const [MVCFromQueryString('numero', '')] numero: String): THelisaPedidoDetalleDTO;
   end;
 
 implementation
