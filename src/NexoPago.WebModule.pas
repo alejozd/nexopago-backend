@@ -32,7 +32,8 @@ uses
   NexoPago.Controllers.Usuarios,
   NexoPago.Controllers.Permisos,
   NexoPago.Controllers.Dashboard,
-  NexoPago.Controllers.Reportes; // <-- Referencia a los controllers
+  NexoPago.Controllers.Reportes,
+  NexoPago.Controllers.HelisaPedidos; // <-- Referencia a los controllers
 
 type
   TNexoPagoWebModule = class(TWebModule)
@@ -74,6 +75,7 @@ begin
   fMVC.AddController(TPermisosController);
   fMVC.AddController(TDashboardController);
   fMVC.AddController(TReportesController);
+  fMVC.AddController(THelisaPedidosController);
 
   // Middlewares b�sicos
   fMVC.AddMiddleware(TMVCTraceMiddleware.Create);
