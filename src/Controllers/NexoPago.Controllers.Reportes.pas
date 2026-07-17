@@ -37,6 +37,12 @@ type
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('sortField', '')] ASortField: String;
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TCarteraProveedorDTO>;
+
+    // Tarjetas KPI de la pantalla de Reportes de Cartera.
+    [MVCSwagSummary('Reportes', 'Resumen de cartera: total pendiente, orden mas antigua, proveedor con mayor deuda')]
+    [MVCPath('/cartera/resumen')]
+    [MVCHTTPMethod([httpGET])]
+    function GetCarteraResumen: TCarteraResumenDTO;
   end;
 
 implementation
@@ -57,6 +63,11 @@ function TReportesController.GetCarteraPorProveedor(const APage, ARows: Integer;
   const ASortOrder: Integer): TPagedResultDTO<TCarteraProveedorDTO>;
 begin
   Result := fReportesService.GetCarteraPorProveedor(APage, ARows, ASortField, ASortOrder);
+end;
+
+function TReportesController.GetCarteraResumen: TCarteraResumenDTO;
+begin
+  Result := fReportesService.GetCarteraResumen;
 end;
 
 end.

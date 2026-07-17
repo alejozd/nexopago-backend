@@ -314,6 +314,17 @@ type
   // Reporte de Cartera (3.8): igual que IDashboardRepository, toca ORDEN_COMPRA
   // + ORDEN_COMPRA_DETALLE + RECIBO_CAJA_CHIPIS + PROVEEDOR a la vez -no una
   // sola entidad- asi que es una interfaz propia, no IMVCRepository<T>.
+  TCarteraResumenRow = record
+    TotalPendiente: Currency;
+    CantidadOrdenesConSaldo: Int64;
+    OrdenMasAntiguaNumero: String;
+    OrdenMasAntiguaDias: Int64;
+    TieneOrdenMasAntigua: Boolean;
+    ProveedorMayorDeudaNombre: String;
+    ProveedorMayorDeudaMonto: Currency;
+    TieneProveedorMayorDeuda: Boolean;
+  end;
+
   IReportesRepository = interface
     ['{564146C4-0C5E-4E56-B64C-AB012619D537}']
     function GetCarteraCount: Int64;
@@ -323,6 +334,9 @@ type
     function GetCarteraPorProveedorCount: Int64;
     function GetCarteraPorProveedor(const AOffset, ALimit: Integer;
       const ASortColumnSQL: String): TArray<TCarteraProveedorRow>;
+    // Tarjetas KPI de Reportes de Cartera: total pendiente, orden mas
+    // antigua sin pagar, proveedor con mayor deuda, cantidad con saldo.
+    function GetCarteraResumen: TCarteraResumenRow;
   end;
 
   TReportesRepository = class(TInterfacedObject, IReportesRepository)
@@ -332,6 +346,7 @@ type
     function GetCarteraPorProveedorCount: Int64;
     function GetCarteraPorProveedor(const AOffset, ALimit: Integer;
       const ASortColumnSQL: String): TArray<TCarteraProveedorRow>;
+    function GetCarteraResumen: TCarteraResumenRow;
   end;
 
 implementation
@@ -1175,6 +1190,51 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TReportesRepository.GetCarteraResumen: TCarteraResumenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+
+    LQuery.SQL.Text :=
+      'SELECT COALESCE(SUM(T.SALDO), 0) AS TOTAL_PENDIENTE, COUNT(*) AS CANTIDAD ' +
+      'FROM (' + cCarteraSaldoSubquery + ') T WHERE T.SALDO > 0';
+    LQuery.Open;
+    Result.TotalPendiente := LQuery.FieldByName('TOTAL_PENDIENTE').AsCurrency;
+    Result.CantidadOrdenesConSaldo := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+    LQuery.Close;
+
+    LQuery.SQL.Text :=
+      'SELECT FIRST 1 T.NUMERO_ORDEN, T.FECHA_ORDEN, CAST(CURRENT_DATE AS DATE) - T.FECHA_ORDEN AS DIAS ' +
+      'FROM (' + cCarteraSaldoSubquery + ') T WHERE T.SALDO > 0 ORDER BY T.FECHA_ORDEN ASC';
+    LQuery.Open;
+    Result.TieneOrdenMasAntigua := not LQuery.Eof;
+    if Result.TieneOrdenMasAntigua then
+    begin
+      Result.OrdenMasAntiguaNumero := LQuery.FieldByName('NUMERO_ORDEN').AsString;
+      Result.OrdenMasAntiguaDias := LQuery.FieldByName('DIAS').AsLargeInt;
+    end;
+    LQuery.Close;
+
+    LQuery.SQL.Text :=
+      'SELECT FIRST 1 T.PROVEEDOR_NOMBRE, SUM(T.SALDO) AS SALDO_TOTAL ' +
+      'FROM (' + cCarteraSaldoSubquery + ') T WHERE T.SALDO > 0 ' +
+      'GROUP BY T.PROVEEDOR_NOMBRE ' +
+      'ORDER BY SUM(T.SALDO) DESC';
+    LQuery.Open;
+    Result.TieneProveedorMayorDeuda := not LQuery.Eof;
+    if Result.TieneProveedorMayorDeuda then
+    begin
+      Result.ProveedorMayorDeudaNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+      Result.ProveedorMayorDeudaMonto := LQuery.FieldByName('SALDO_TOTAL').AsCurrency;
+    end;
+  finally
+    LQuery.Free;
   end;
 end;
 
