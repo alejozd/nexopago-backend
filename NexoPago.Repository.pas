@@ -148,14 +148,33 @@ type
     function GetTotalPagado(const AOrdenID: Int64): Currency;
   end;
 
-  // Sin custom finders por ahora: ENTRADAS_MERCANCIA no tiene listado propio
-  // ("no es un CRUD independiente", CONTEXTO_PROYECTO.md 3.6). Solo se crea
-  // desde el listado de Ordenes; el CRUD generico de IMVCRepository<T> basta.
+  // Fila plana para el listado de auditoria de entradas: cabecera + numero
+  // de orden + nombre de proveedor + nombre de quien registro, resueltos en
+  // una sola consulta SQL (join). Solo se crea desde el listado de Ordenes
+  // ("no es un CRUD independiente", CONTEXTO_PROYECTO.md 3.6) pero si tiene
+  // un listado propio de solo lectura para auditoria.
+  TEntradaListRow = record
+    EntradaID: Int64;
+    NumeroEntradaHelisa: String;
+    FechaEntrada: TDate;
+    NumeroOrden: String;
+    ProveedorNombre: String;
+    UsuarioCreoNombre: String;
+    FechaCreacion: TDateTime;
+    Observaciones: String;
+    TieneObservaciones: Boolean;
+  end;
+
   IEntradasMercanciaRepository = interface(IMVCRepository<TEntradaMercancia>)
     ['{72DE6C24-8744-40F2-A5F5-D5741CB0793A}']
+    // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
+    // (whitelist), nunca texto crudo del cliente.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
   end;
 
   TEntradasMercanciaRepository = class(TMVCRepository<TEntradaMercancia>, IEntradasMercanciaRepository)
+  public
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
   end;
 
   IModuloRepository = interface(IMVCRepository<TModulo>)
@@ -529,6 +548,55 @@ begin
     Result := LQuery.FieldByName('TOTAL_PAGADO').AsCurrency;
   finally
     LQuery.Free;
+  end;
+end;
+
+function TEntradasMercanciaRepository.GetListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL: String): TArray<TEntradaListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TEntradaListRow>;
+  LRow: TEntradaListRow;
+begin
+  LRows := TList<TEntradaListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
+      LQuery.SQL.Text :=
+        'SELECT FIRST :flimit SKIP :foffset ' +
+        '  E.ENTRADA_ID, E.NUMERO_ENTRADA_HELISA, E.FECHA_ENTRADA, E.FECHA_CREACION, E.OBSERVACIONES, ' +
+        '  OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE, ' +
+        '  TRIM(U.NOMBRE || '' '' || COALESCE(U.APELLIDO, '''')) AS USUARIO_CREO_NOMBRE ' +
+        'FROM ENTRADAS_MERCANCIA E ' +
+        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = E.ORDEN_ID ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'LEFT JOIN USUARIO U ON U.USUARIO_ID = E.USUARIO_CREO_ID ' +
+        'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.EntradaID := LQuery.FieldByName('ENTRADA_ID').AsLargeInt;
+        LRow.NumeroEntradaHelisa := LQuery.FieldByName('NUMERO_ENTRADA_HELISA').AsString;
+        LRow.FechaEntrada := LQuery.FieldByName('FECHA_ENTRADA').AsDateTime;
+        LRow.NumeroOrden := LQuery.FieldByName('NUMERO_ORDEN').AsString;
+        LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+        LRow.UsuarioCreoNombre := LQuery.FieldByName('USUARIO_CREO_NOMBRE').AsString;
+        LRow.FechaCreacion := LQuery.FieldByName('FECHA_CREACION').AsDateTime;
+        LRow.TieneObservaciones := not LQuery.FieldByName('OBSERVACIONES').IsNull;
+        if LRow.TieneObservaciones then
+          LRow.Observaciones := LQuery.FieldByName('OBSERVACIONES').AsString;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
   end;
 end;
 

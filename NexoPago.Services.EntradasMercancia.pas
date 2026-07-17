@@ -9,6 +9,10 @@ uses
 type
   IEntradasMercanciaService = interface
     ['{97E6B955-30A7-4C51-9FDC-8545DA8B4161}']
+    // Listado de solo lectura para auditoria (CONTEXTO_PROYECTO.md 3.6:
+    // las entradas se crean solo desde Ordenes, pero se pueden consultar).
+    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+      const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
     // Registra la entrada y actualiza ORDEN_COMPRA.ESTADO en la misma
     // transaccion. Retorna el ENTRADA_ID recien creado.
     function RegistrarEntrada(const ADatos: TEntradaCreateDTO): Int64;
@@ -20,6 +24,7 @@ implementation
 
 uses
   System.SysUtils,
+  System.Math,
   MVCFramework.Commons,
   MVCFramework.ActiveRecord,
   FireDAC.Comp.Client,
@@ -31,8 +36,11 @@ type
   private
     fEntradasRepository: IEntradasMercanciaRepository;
     fOrdenesRepository: IOrdenesRepository;
+    function BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
   public
     constructor Create(AEntradasRepository: IEntradasMercanciaRepository; AOrdenesRepository: IOrdenesRepository);
+    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+      const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
     function RegistrarEntrada(const ADatos: TEntradaCreateDTO): Int64;
   end;
 
@@ -42,6 +50,70 @@ begin
   inherited Create;
   fEntradasRepository := AEntradasRepository;
   fOrdenesRepository := AOrdenesRepository;
+end;
+
+function TEntradasMercanciaService.BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
+const
+  cDefaultColumn = 'E.FECHA_ENTRADA';
+var
+  LField, LColumn, LDirection: String;
+begin
+  LField := LowerCase(Trim(ASortField));
+  if LField = 'numeroentradahelisa' then
+    LColumn := 'E.NUMERO_ENTRADA_HELISA'
+  else if LField = 'fechaentrada' then
+    LColumn := 'E.FECHA_ENTRADA'
+  else if LField = 'numeroorden' then
+    LColumn := 'OC.NUMERO_ORDEN'
+  else if LField = 'proveedornombre' then
+    LColumn := 'P.NOMBRE'
+  else if LField = 'fechacreacion' then
+    LColumn := 'E.FECHA_CREACION'
+  else
+    LColumn := cDefaultColumn;
+
+  if ASortOrder < 0 then
+    LDirection := 'DESC'
+  else
+    LDirection := 'ASC';
+
+  Result := LColumn + ' ' + LDirection;
+end;
+
+function TEntradasMercanciaService.GetPaged(const APage, ARows: Integer; const ASortField: String;
+  const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
+var
+  LRows: TArray<TEntradaListRow>;
+  LRow: TEntradaListRow;
+  LDTO: TEntradaListDTO;
+  LOffset, LLimit: Integer;
+begin
+  LLimit := Max(ARows, 1);
+  LOffset := (Max(APage, 1) - 1) * LLimit;
+
+  Result := TPagedResultDTO<TEntradaListDTO>.Create;
+  try
+    Result.TotalRecords := fEntradasRepository.Count;
+
+    LRows := fEntradasRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder));
+    for LRow in LRows do
+    begin
+      LDTO := TEntradaListDTO.Create;
+      LDTO.ID := LRow.EntradaID;
+      LDTO.NumeroEntradaHelisa := LRow.NumeroEntradaHelisa;
+      LDTO.FechaEntrada := LRow.FechaEntrada;
+      LDTO.NumeroOrden := LRow.NumeroOrden;
+      LDTO.ProveedorNombre := LRow.ProveedorNombre;
+      LDTO.UsuarioCreoNombre := LRow.UsuarioCreoNombre;
+      LDTO.FechaCreacion := LRow.FechaCreacion;
+      if LRow.TieneObservaciones then
+        LDTO.Observaciones := LRow.Observaciones;
+      Result.Data.Add(LDTO);
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function TEntradasMercanciaService.RegistrarEntrada(const ADatos: TEntradaCreateDTO): Int64;

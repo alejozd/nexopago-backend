@@ -346,6 +346,30 @@ type
     property Observaciones: NullableString read fObservaciones write fObservaciones;
   end;
 
+  // Fila del listado paginado GET /api/entradas (pantalla de auditoria,
+  // CONTEXTO_PROYECTO.md 3.6: no es un CRUD independiente, solo lectura).
+  [MVCNameCase(ncCamelCase)]
+  TEntradaListDTO = class
+  private
+    fID: Int64;
+    fNumeroEntradaHelisa: String;
+    fFechaEntrada: TDate;
+    fNumeroOrden: String;
+    fProveedorNombre: String;
+    fUsuarioCreoNombre: String;
+    fFechaCreacion: TDateTime;
+    fObservaciones: NullableString;
+  public
+    property ID: Int64 read fID write fID;
+    property NumeroEntradaHelisa: String read fNumeroEntradaHelisa write fNumeroEntradaHelisa;
+    property FechaEntrada: TDate read fFechaEntrada write fFechaEntrada;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property UsuarioCreoNombre: String read fUsuarioCreoNombre write fUsuarioCreoNombre;
+    property FechaCreacion: TDateTime read fFechaCreacion write fFechaCreacion;
+    property Observaciones: NullableString read fObservaciones write fObservaciones;
+  end;
+
   // Fila del listado paginado GET /api/usuarios. roles viene concatenado
   // (Firebird LIST()) desde USUARIO_PERFIL/PERFIL.
   [MVCNameCase(ncCamelCase)]
