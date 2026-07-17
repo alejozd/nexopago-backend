@@ -62,7 +62,7 @@
         <UsingDelphiRTL>true</UsingDelphiRTL>
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
-        <DCC_UnitSearchPath>$(DMVC);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>$(DMVC);src\Config;src\Utils;src\Entities;src\Repository;src\DTOs;src\Security;src\Helisa;src\Services;src\Controllers;src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_Framework>FMX;$(DCC_Framework)</DCC_Framework>
         <SanitizedProjectName>NexoPagoBackend</SanitizedProjectName>
     </PropertyGroup>
@@ -107,35 +107,40 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="NexoPago.Config.pas"/>
-        <DCCReference Include="NexoPago.Entities.pas"/>
-        <DCCReference Include="NexoPago.Repository.pas"/>
-        <DCCReference Include="NexoPago.DTOs.pas"/>
-        <DCCReference Include="NexoPago.Security.Password.pas"/>
-        <DCCReference Include="NexoPago.Services.Auth.pas"/>
-        <DCCReference Include="NexoPago.Services.Recibos.pas"/>
-        <DCCReference Include="NexoPago.Services.Ordenes.pas"/>
-        <DCCReference Include="NexoPago.Services.EntradasMercancia.pas"/>
-        <DCCReference Include="NexoPago.Services.Usuarios.pas"/>
-        <DCCReference Include="NexoPago.Services.Permisos.pas"/>
-        <DCCReference Include="NexoPago.Services.Dashboard.pas"/>
-        <DCCReference Include="NexoPago.Services.Reportes.pas"/>
-        <DCCReference Include="NexoPago.Services.pas"/>
-        <DCCReference Include="NexoPago.WebModule.pas">
+        <DCCReference Include="src\Config\HConfig.pas"/>
+        <DCCReference Include="src\Config\NexoPago.Config.pas"/>
+        <DCCReference Include="src\Utils\uPaths.pas"/>
+        <DCCReference Include="src\Entities\NexoPago.Entities.pas"/>
+        <DCCReference Include="src\Repository\NexoPago.Repository.pas"/>
+        <DCCReference Include="src\DTOs\NexoPago.DTOs.pas"/>
+        <DCCReference Include="src\Security\NexoPago.Security.Password.pas"/>
+        <DCCReference Include="src\Security\NexoPago.Security.CurrentUser.pas"/>
+        <DCCReference Include="src\Helisa\NexoPago.Helisa.Connection.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Auth.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Recibos.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Ordenes.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.EntradasMercancia.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Usuarios.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Permisos.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Dashboard.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Reportes.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.pas"/>
+        <DCCReference Include="src\NexoPago.WebModule.pas">
             <Form>NexoPagoWebModule</Form>
             <FormType>dfm</FormType>
             <DesignClass>TWebModule</DesignClass>
         </DCCReference>
-        <DCCReference Include="NexoPago.Controllers.Ordenes.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Health.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Proveedores.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Auth.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Recibos.pas"/>
-        <DCCReference Include="NexoPago.Controllers.EntradasMercancia.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Usuarios.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Permisos.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Dashboard.pas"/>
-        <DCCReference Include="NexoPago.Controllers.Reportes.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Ordenes.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Health.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Proveedores.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Productos.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Auth.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Recibos.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.EntradasMercancia.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Usuarios.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Permisos.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Dashboard.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Reportes.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

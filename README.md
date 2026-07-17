@@ -64,14 +64,18 @@ El frontend (React + PrimeReact) es la siguiente fase, en un repositorio separad
 NexoPago/
 ├── Backend/                 # Este repositorio: código fuente Delphi (DMVCFramework)
 │   ├── NexoPagoBackend.dpr
-│   ├── NexoPago.WebModule.pas
-│   ├── NexoPago.Config.pas              # Conexión FireDAC vía .env
-│   ├── NexoPago.Entities.pas            # TMVCActiveRecord por tabla
-│   ├── NexoPago.Repository.pas          # Interfaces de repositorio (una por entidad)
-│   ├── NexoPago.DTOs.pas                # Objetos de transferencia
-│   ├── NexoPago.Security.Password.pas   # Hashing PBKDF2
-│   ├── NexoPago.Services.*.pas          # Lógica de negocio (uno por dominio)
-│   ├── NexoPago.Controllers.*.pas       # Endpoints REST (uno por recurso)
+│   ├── NexoPagoBackend.dproj
+│   ├── src/
+│   │   ├── Config/             # NexoPago.Config.pas (FireDAC vía .env), HConfig.pas (registro Helisa)
+│   │   ├── Utils/               # uPaths.pas
+│   │   ├── Entities/           # NexoPago.Entities.pas — TMVCActiveRecord por tabla
+│   │   ├── Repository/         # NexoPago.Repository.pas — interfaces de repositorio (una por entidad)
+│   │   ├── DTOs/                # NexoPago.DTOs.pas — objetos de transferencia
+│   │   ├── Security/            # NexoPago.Security.Password.pas, NexoPago.Security.CurrentUser.pas
+│   │   ├── Helisa/              # NexoPago.Helisa.Connection.pas y utilidades de integración Helisa
+│   │   ├── Services/            # NexoPago.Services.*.pas — lógica de negocio (uno por dominio)
+│   │   ├── Controllers/         # NexoPago.Controllers.*.pas — endpoints REST (uno por recurso)
+│   │   └── NexoPago.WebModule.pas   # Módulo de composición (registra controllers/servicios)
 │   ├── www/                             # Assets estáticos de Swagger UI
 │   └── .env.sample                      # Plantilla de configuración (sin secretos)
 ├── DataBase/                 # Scripts SQL y base de datos local (fuera de git)
