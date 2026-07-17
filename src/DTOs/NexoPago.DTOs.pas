@@ -587,6 +587,49 @@ type
     property SaldoPendienteTotal: Currency read fSaldoPendienteTotal write fSaldoPendienteTotal;
   end;
 
+  // Fila del listado de pedidos recientes de Helisa (PEMAXXXX), para el
+  // buscador de "Numero Pedido Helisa" en el formulario de Ordenes.
+  [MVCNameCase(ncCamelCase)]
+  THelisaPedidoResumenDTO = class
+  private
+    fNumeroPedido: String;
+    fFecha: String;
+  public
+    property NumeroPedido: String read fNumeroPedido write fNumeroPedido;
+    // Formato YYYY/MM/DD (ya convertida via HEDATETOSTR de Firebird, no un
+    // TDate: el entero de Helisa no mapea 1-a-1 a un TDate valido).
+    property Fecha: String read fFecha write fFecha;
+  end;
+
+  // Linea del detalle de un pedido Helisa (join PEMAXXXX+PETRXXXX+INMAXXXX).
+  [MVCNameCase(ncCamelCase)]
+  THelisaPedidoDetalleLineaDTO = class
+  private
+    fConsecutivo: Integer;
+    fCodigoConcepto: String;
+    fSubCodigo: String;
+    fDescripcion: String;
+    fReferencia: String;
+  public
+    property Consecutivo: Integer read fConsecutivo write fConsecutivo;
+    property CodigoConcepto: String read fCodigoConcepto write fCodigoConcepto;
+    property SubCodigo: String read fSubCodigo write fSubCodigo;
+    property Descripcion: String read fDescripcion write fDescripcion;
+    property Referencia: String read fReferencia write fReferencia;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
+  THelisaPedidoDetalleDTO = class
+  private
+    fNumeroPedido: String;
+    fLineas: TObjectList<THelisaPedidoDetalleLineaDTO>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property NumeroPedido: String read fNumeroPedido write fNumeroPedido;
+    property Lineas: TObjectList<THelisaPedidoDetalleLineaDTO> read fLineas;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation
@@ -612,6 +655,18 @@ end;
 destructor TOrdenCompraFullDTO.Destroy;
 begin
   fDetalles.Free;
+  inherited;
+end;
+
+constructor THelisaPedidoDetalleDTO.Create;
+begin
+  inherited Create;
+  fLineas := TObjectList<THelisaPedidoDetalleLineaDTO>.Create(True);
+end;
+
+destructor THelisaPedidoDetalleDTO.Destroy;
+begin
+  fLineas.Free;
   inherited;
 end;
 
