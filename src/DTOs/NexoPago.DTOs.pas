@@ -406,6 +406,18 @@ type
   end;
 
   [MVCNameCase(ncCamelCase)]
+  TOrdenesResumenDTO = class
+  private
+    fPendientes: Int64;
+    fRecibidas: Int64;
+    fAnuladas: Int64;
+  public
+    property Pendientes: Int64 read fPendientes write fPendientes;
+    property Recibidas: Int64 read fRecibidas write fRecibidas;
+    property Anuladas: Int64 read fAnuladas write fAnuladas;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
   TProveedoresResumenDTO = class
   private
     fTotal: Int64;

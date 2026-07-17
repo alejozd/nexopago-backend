@@ -57,6 +57,12 @@ type
     [MVCHTTPMethod([httpPUT])]
     function AnularOrden(const id: Int64;
       const [MVCFromQueryString('motivo', '')] AMotivo: String): IMVCResponse;
+
+    // Tarjetas KPI del listado: Pendientes, Recibidas, Anuladas.
+    [MVCSwagSummary('Ordenes', 'Resumen de ordenes: pendientes, recibidas y anuladas')]
+    [MVCPath('/ordenes/resumen')]
+    [MVCHTTPMethod([httpGET])]
+    function GetResumen: TOrdenesResumenDTO;
   end;
 
 implementation
@@ -103,6 +109,11 @@ function TOrdenesController.AnularOrden(const id: Int64; const AMotivo: String):
 begin
   fOrdenesService.AnularOrden(id, AMotivo, GetCurrentUserID(Context));
   Result := OKResponse('Orden anulada correctamente');
+end;
+
+function TOrdenesController.GetResumen: TOrdenesResumenDTO;
+begin
+  Result := fOrdenesService.GetResumen;
 end;
 
 end.

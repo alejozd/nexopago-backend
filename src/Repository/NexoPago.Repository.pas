@@ -115,16 +115,24 @@ type
     ValorTotal: Currency;
   end;
 
+  TOrdenesResumenRow = record
+    Pendientes: Int64;
+    Recibidas: Int64;
+    Anuladas: Int64;
+  end;
+
   IOrdenesRepository = interface(IMVCRepository<TOrdenCompra>)
     ['{9CEDA904-AF62-4709-89EC-EE2A5995E9D7}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
     // (whitelist), nunca texto crudo del cliente.
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+    function GetResumen: TOrdenesResumenRow;
   end;
 
   TOrdenesRepository = class(TMVCRepository<TOrdenCompra>, IOrdenesRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+    function GetResumen: TOrdenesResumenRow;
   end;
 
   // Fila plana para el listado paginado de recibos: cabecera + numero de
@@ -406,6 +414,28 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TOrdenesRepository.GetResumen: TOrdenesResumenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT ' +
+      '  (SELECT COUNT(*) FROM ORDEN_COMPRA WHERE ESTADO IN (''BORRADOR'', ''PENDIENTE'', ''PARCIALMENTE_RECIBIDA'')) AS PENDIENTES, ' +
+      '  (SELECT COUNT(*) FROM ORDEN_COMPRA WHERE ESTADO = ''RECIBIDA'') AS RECIBIDAS, ' +
+      '  (SELECT COUNT(*) FROM ORDEN_COMPRA WHERE ESTADO = ''ANULADA'') AS ANULADAS ' +
+      'FROM RDB$DATABASE';
+    LQuery.Open;
+    Result.Pendientes := LQuery.FieldByName('PENDIENTES').AsLargeInt;
+    Result.Recibidas := LQuery.FieldByName('RECIBIDAS').AsLargeInt;
+    Result.Anuladas := LQuery.FieldByName('ANULADAS').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 
