@@ -21,6 +21,8 @@ type
     procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64);
     // No revierte recibos ni entradas: solo marca la orden como ANULADA.
     procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
+    // Tarjetas KPI del listado: Pendientes (BORRADOR/PENDIENTE/PARCIALMENTE_RECIBIDA), Recibidas, Anuladas.
+    function GetResumen: TOrdenesResumenDTO;
   end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);
@@ -56,6 +58,7 @@ type
     function CrearOrden(const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64): Int64;
     procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64);
     procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
+    function GetResumen: TOrdenesResumenDTO;
   end;
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
@@ -396,6 +399,17 @@ begin
     LConn.Rollback;
     raise;
   end;
+end;
+
+function TOrdenesService.GetResumen: TOrdenesResumenDTO;
+var
+  LRow: TOrdenesResumenRow;
+begin
+  LRow := fOrdenesRepository.GetResumen;
+  Result := TOrdenesResumenDTO.Create;
+  Result.Pendientes := LRow.Pendientes;
+  Result.Recibidas := LRow.Recibidas;
+  Result.Anuladas := LRow.Anuladas;
 end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);
