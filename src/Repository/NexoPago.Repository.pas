@@ -30,6 +30,10 @@ type
     Nombre: String;
     Apellido: String;
     Roles: String;
+    // IDs de PERFIL asignados, separados por coma (mismo LIST() que Roles),
+    // para poder precargar el MultiSelect del dialog de edicion sin un
+    // endpoint GET /usuarios/(id) aparte.
+    PerfilIdsCSV: String;
     Activo: Boolean;
     FechaUltimoAcceso: TDateTime;
     TieneUltimoAcceso: Boolean;
@@ -48,6 +52,9 @@ type
     // (whitelist), nunca texto crudo del cliente.
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TUsuarioListRow>;
     function GetResumen: TUsuariosResumenRow;
+    // Reemplazo completo de perfiles asignados (delete+insert en
+    // USUARIO_PERFIL), mismo patron que IPerfilRepository.SetPermisoIds.
+    procedure SetPerfilIds(const AUsuarioID: Int64; const APerfilIds: TArray<Int64>);
   end;
 
   TUsuarioRepository = class(TMVCRepository<TUsuario>, IUsuarioRepository)
@@ -55,6 +62,7 @@ type
     function GetRoleNames(const AUsuarioID: Int64): TArray<String>;
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TUsuarioListRow>;
     function GetResumen: TUsuariosResumenRow;
+    procedure SetPerfilIds(const AUsuarioID: Int64; const APerfilIds: TArray<Int64>);
   end;
 
   TProveedoresResumenRow = record
@@ -717,7 +725,8 @@ begin
       LQuery.SQL.Text :=
         'SELECT FIRST :flimit SKIP :foffset ' +
         '  U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO, ' +
-        '  COALESCE(LIST(P.NOMBRE, '', ''), '''') AS ROLES ' +
+        '  COALESCE(LIST(P.NOMBRE, '', ''), '''') AS ROLES, ' +
+        '  COALESCE(LIST(UP.PERFIL_ID, '',''), '''') AS PERFIL_IDS ' +
         'FROM USUARIO U ' +
         'LEFT JOIN USUARIO_PERFIL UP ON UP.USUARIO_ID = U.USUARIO_ID ' +
         'LEFT JOIN PERFIL P ON P.PERFIL_ID = UP.PERFIL_ID ' +
@@ -733,6 +742,7 @@ begin
         LRow.Nombre := LQuery.FieldByName('NOMBRE').AsString;
         LRow.Apellido := LQuery.FieldByName('APELLIDO').AsString;
         LRow.Roles := LQuery.FieldByName('ROLES').AsString;
+        LRow.PerfilIdsCSV := LQuery.FieldByName('PERFIL_IDS').AsString;
         // FireDAC no coacciona SMALLINT -> Boolean en lectura (.AsBoolean
         // lanza "Cannot access field as type Boolean" aqui); se compara
         // directo el entero, igual que hace ACTIVO=1 en GetResumen.
@@ -769,6 +779,31 @@ begin
     Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
     Result.Activos := LQuery.FieldByName('ACTIVOS').AsLargeInt;
     Result.TotalRoles := LQuery.FieldByName('TOTAL_ROLES').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+procedure TUsuarioRepository.SetPerfilIds(const AUsuarioID: Int64; const APerfilIds: TArray<Int64>);
+var
+  LQuery: TFDQuery;
+  LPerfilID: Int64;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+
+    LQuery.SQL.Text := 'DELETE FROM USUARIO_PERFIL WHERE USUARIO_ID = :usuarioId';
+    LQuery.ParamByName('usuarioId').AsLargeInt := AUsuarioID;
+    LQuery.ExecSQL;
+
+    LQuery.SQL.Text := 'INSERT INTO USUARIO_PERFIL (USUARIO_ID, PERFIL_ID) VALUES (:usuarioId, :perfilId)';
+    for LPerfilID in APerfilIds do
+    begin
+      LQuery.ParamByName('usuarioId').AsLargeInt := AUsuarioID;
+      LQuery.ParamByName('perfilId').AsLargeInt := LPerfilID;
+      LQuery.ExecSQL;
+    end;
   finally
     LQuery.Free;
   end;
