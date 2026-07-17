@@ -380,6 +380,7 @@ type
     fNombre: String;
     fApellido: String;
     fRoles: String;
+    fPerfilIds: TArray<Int64>;
     fActivo: Boolean;
     fFechaUltimoAcceso: NullableTDateTime;
   public
@@ -388,8 +389,46 @@ type
     property Nombre: String read fNombre write fNombre;
     property Apellido: String read fApellido write fApellido;
     property Roles: String read fRoles write fRoles;
+    // IDs de PERFIL asignados, para precargar el MultiSelect del dialog de
+    // edicion sin un endpoint GET /usuarios/(id) aparte.
+    property PerfilIds: TArray<Int64> read fPerfilIds write fPerfilIds;
     property Activo: Boolean read fActivo write fActivo;
     property FechaUltimoAcceso: NullableTDateTime read fFechaUltimoAcceso write fFechaUltimoAcceso;
+  end;
+
+  // Body de POST /api/usuarios (crear).
+  [MVCNameCase(ncCamelCase)]
+  TUsuarioCreateDTO = class
+  private
+    fNombreUsuario: String;
+    fPassword: String;
+    fNombre: String;
+    fApellido: NullableString;
+    fCorreoElectronico: NullableString;
+    fPerfilIds: TArray<Int64>;
+  public
+    property NombreUsuario: String read fNombreUsuario write fNombreUsuario;
+    property Password: String read fPassword write fPassword;
+    property Nombre: String read fNombre write fNombre;
+    property Apellido: NullableString read fApellido write fApellido;
+    property CorreoElectronico: NullableString read fCorreoElectronico write fCorreoElectronico;
+    property PerfilIds: TArray<Int64> read fPerfilIds write fPerfilIds;
+  end;
+
+  // Body de PUT /api/usuarios/(id) (editar). Sin password ni nombreUsuario:
+  // cambiar credenciales de acceso queda fuera de este alcance.
+  [MVCNameCase(ncCamelCase)]
+  TUsuarioUpdateDTO = class
+  private
+    fNombre: String;
+    fApellido: NullableString;
+    fCorreoElectronico: NullableString;
+    fPerfilIds: TArray<Int64>;
+  public
+    property Nombre: String read fNombre write fNombre;
+    property Apellido: NullableString read fApellido write fApellido;
+    property CorreoElectronico: NullableString read fCorreoElectronico write fCorreoElectronico;
+    property PerfilIds: TArray<Int64> read fPerfilIds write fPerfilIds;
   end;
 
   // Respuesta de GET /api/usuarios/resumen: las "tarjetas" de 3.9.
