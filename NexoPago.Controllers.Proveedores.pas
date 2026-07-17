@@ -56,7 +56,8 @@ type
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  NexoPago.Security.CurrentUser;
 
 constructor TProveedoresController.Create(AProveedoresService: IProveedoresService);
 begin
@@ -74,19 +75,19 @@ function TProveedoresController.CreateProveedor(const ADatos: TProveedorCreateDT
 var
   LNewID: Int64;
 begin
-  LNewID := fProveedoresService.CrearProveedor(ADatos);
+  LNewID := fProveedoresService.CrearProveedor(ADatos, GetCurrentUserID(Context));
   Result := CreatedResponse('/api/proveedores/' + LNewID.ToString, 'Proveedor creado correctamente');
 end;
 
 function TProveedoresController.UpdateProveedor(const id: Int64; const ADatos: TProveedorCreateDTO): IMVCResponse;
 begin
-  fProveedoresService.ActualizarProveedor(id, ADatos);
+  fProveedoresService.ActualizarProveedor(id, ADatos, GetCurrentUserID(Context));
   Result := OKResponse('Proveedor actualizado correctamente');
 end;
 
 function TProveedoresController.CambiarEstadoProveedor(const id: Int64; const AActivo: Boolean): IMVCResponse;
 begin
-  fProveedoresService.CambiarEstadoProveedor(id, AActivo);
+  fProveedoresService.CambiarEstadoProveedor(id, AActivo, GetCurrentUserID(Context));
   Result := OKResponse('Estado del proveedor actualizado correctamente');
 end;
 

@@ -49,7 +49,8 @@ type
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  NexoPago.Security.CurrentUser;
 
 constructor TRecibosController.Create(ARecibosService: IRecibosService);
 begin
@@ -67,13 +68,13 @@ function TRecibosController.CreateRecibo(const ADatos: TReciboCreateDTO): IMVCRe
 var
   LNewID: Int64;
 begin
-  LNewID := fRecibosService.CrearRecibo(ADatos);
+  LNewID := fRecibosService.CrearRecibo(ADatos, GetCurrentUserID(Context));
   Result := CreatedResponse('/api/recibos/' + LNewID.ToString, 'Recibo creado correctamente');
 end;
 
 function TRecibosController.AnularRecibo(const id: Int64; const AMotivo: String): IMVCResponse;
 begin
-  fRecibosService.AnularRecibo(id, AMotivo);
+  fRecibosService.AnularRecibo(id, AMotivo, GetCurrentUserID(Context));
   Result := OKResponse('Recibo anulado correctamente');
 end;
 

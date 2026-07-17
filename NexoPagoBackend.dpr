@@ -18,6 +18,7 @@ uses
   NexoPago.Services in 'NexoPago.Services.pas',
   NexoPago.WebModule in 'NexoPago.WebModule.pas' {NexoPagoWebModule: TWebModule},
   NexoPago.Security.Password in 'NexoPago.Security.Password.pas',
+  NexoPago.Security.CurrentUser in 'NexoPago.Security.CurrentUser.pas',
   NexoPago.Services.Auth in 'NexoPago.Services.Auth.pas',
   NexoPago.Services.Recibos in 'NexoPago.Services.Recibos.pas',
   NexoPago.Services.Ordenes in 'NexoPago.Services.Ordenes.pas',

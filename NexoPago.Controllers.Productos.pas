@@ -43,6 +43,9 @@ type
 
 implementation
 
+uses
+  NexoPago.Security.CurrentUser;
+
 constructor TProductosController.Create(AProductosService: IProductosService);
 begin
   inherited Create;
@@ -57,7 +60,7 @@ end;
 
 function TProductosController.SincronizarProductos: TSincronizacionResumenDTO;
 begin
-  Result := fProductosService.SincronizarProductos;
+  Result := fProductosService.SincronizarProductos(GetCurrentUserID(Context));
 end;
 
 end.

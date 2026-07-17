@@ -41,7 +41,8 @@ type
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  NexoPago.Security.CurrentUser;
 
 constructor TEntradasMercanciaController.Create(AEntradasService: IEntradasMercanciaService);
 begin
@@ -57,7 +58,7 @@ end;
 
 function TEntradasMercanciaController.CreateEntrada(const ADatos: TEntradaCreateDTO): IMVCResponse;
 begin
-  fEntradasService.RegistrarEntrada(ADatos);
+  fEntradasService.RegistrarEntrada(ADatos, GetCurrentUserID(Context));
   Result := CreatedResponse('/api/ordenes/' + ADatos.OrdenID.ToString, 'Entrada de mercancia registrada correctamente');
 end;
 

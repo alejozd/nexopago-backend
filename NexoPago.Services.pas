@@ -18,9 +18,10 @@ type
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
     // Retorna el PROVEEDOR_ID recien creado.
-    function CrearProveedor(const ADatos: TProveedorCreateDTO): Int64;
-    procedure ActualizarProveedor(const AProveedorID: Int64; const ADatos: TProveedorCreateDTO);
-    procedure CambiarEstadoProveedor(const AProveedorID: Int64; const AActivo: Boolean);
+    function CrearProveedor(const ADatos: TProveedorCreateDTO; const AUsuarioID: Int64): Int64;
+    procedure ActualizarProveedor(const AProveedorID: Int64; const ADatos: TProveedorCreateDTO;
+      const AUsuarioID: Int64);
+    procedure CambiarEstadoProveedor(const AProveedorID: Int64; const AActivo: Boolean; const AUsuarioID: Int64);
     // Rechaza el borrado (409) si el proveedor tiene ordenes de compra
     // asociadas: la FK no tiene cascada.
     procedure EliminarProveedor(const AProveedorID: Int64);
@@ -34,7 +35,7 @@ type
     // (CodigoHelisa, SubCodigoHelisa). Registra cada producto tocado en
     // PRODUCTO_SINCRONIZACION. Si Helisa no esta disponible, levanta
     // EMVCException(ServiceUnavailable) con mensaje claro, nunca un 500 crudo.
-    function SincronizarProductos: TSincronizacionResumenDTO;
+    function SincronizarProductos(const AUsuarioID: Int64): TSincronizacionResumenDTO;
   end;
 
 // Aqu� iremos declarando el resto de nuestras interfaces de servicios.
@@ -83,9 +84,10 @@ type
     function CountProveedores: Int64;
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
-    function CrearProveedor(const ADatos: TProveedorCreateDTO): Int64;
-    procedure ActualizarProveedor(const AProveedorID: Int64; const ADatos: TProveedorCreateDTO);
-    procedure CambiarEstadoProveedor(const AProveedorID: Int64; const AActivo: Boolean);
+    function CrearProveedor(const ADatos: TProveedorCreateDTO; const AUsuarioID: Int64): Int64;
+    procedure ActualizarProveedor(const AProveedorID: Int64; const ADatos: TProveedorCreateDTO;
+      const AUsuarioID: Int64);
+    procedure CambiarEstadoProveedor(const AProveedorID: Int64; const AActivo: Boolean; const AUsuarioID: Int64);
     procedure EliminarProveedor(const AProveedorID: Int64);
   end;
 
@@ -93,12 +95,13 @@ type
   private
     fRepository: IProductoRepository;
     function BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
-    procedure RegistrarSincronizacion(AConn: TFDConnection; AProductoID: Int64; const ATipoSinc: String);
+    procedure RegistrarSincronizacion(AConn: TFDConnection; AProductoID: Int64; const ATipoSinc: String;
+      const AUsuarioID: Int64);
   public
     constructor Create(ARepository: IProductoRepository);
     function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TProductoDTO>;
-    function SincronizarProductos: TSincronizacionResumenDTO;
+    function SincronizarProductos(const AUsuarioID: Int64): TSincronizacionResumenDTO;
   end;
 
 constructor THealthService.Create(ARepository: IHealthRepository);
@@ -193,7 +196,7 @@ begin
   end;
 end;
 
-function TProveedoresService.CrearProveedor(const ADatos: TProveedorCreateDTO): Int64;
+function TProveedoresService.CrearProveedor(const ADatos: TProveedorCreateDTO; const AUsuarioID: Int64): Int64;
 var
   LProveedor: TProveedor;
 begin
@@ -213,6 +216,8 @@ begin
     LProveedor.CorreoElectronico := ADatos.CorreoElectronico;
     LProveedor.Activo := True;
     LProveedor.EstadoRegistro := 'A';
+    if AUsuarioID > 0 then
+      LProveedor.UsuarioCreoID := AUsuarioID;
     LProveedor.Insert;
     Result := LProveedor.ID.ValueOrDefault;
   finally
@@ -220,7 +225,8 @@ begin
   end;
 end;
 
-procedure TProveedoresService.ActualizarProveedor(const AProveedorID: Int64; const ADatos: TProveedorCreateDTO);
+procedure TProveedoresService.ActualizarProveedor(const AProveedorID: Int64; const ADatos: TProveedorCreateDTO;
+  const AUsuarioID: Int64);
 var
   LConn: TFDConnection;
   LProveedor: TProveedor;
@@ -244,6 +250,9 @@ begin
       LProveedor.Direccion := ADatos.Direccion;
       LProveedor.Telefono := ADatos.Telefono;
       LProveedor.CorreoElectronico := ADatos.CorreoElectronico;
+      if AUsuarioID > 0 then
+        LProveedor.UsuarioModificoID := AUsuarioID;
+      LProveedor.FechaModificacion := Now;
       fRepository.Update(LProveedor);
     finally
       LProveedor.Free;
@@ -255,7 +264,8 @@ begin
   end;
 end;
 
-procedure TProveedoresService.CambiarEstadoProveedor(const AProveedorID: Int64; const AActivo: Boolean);
+procedure TProveedoresService.CambiarEstadoProveedor(const AProveedorID: Int64; const AActivo: Boolean;
+  const AUsuarioID: Int64);
 var
   LConn: TFDConnection;
   LProveedor: TProveedor;
@@ -268,6 +278,9 @@ begin
       raise EMVCException.Create(HTTP_STATUS.NotFound, 'Proveedor no encontrado');
     try
       LProveedor.Activo := AActivo;
+      if AUsuarioID > 0 then
+        LProveedor.UsuarioModificoID := AUsuarioID;
+      LProveedor.FechaModificacion := Now;
       fRepository.Update(LProveedor);
     finally
       LProveedor.Free;
@@ -396,7 +409,7 @@ begin
 end;
 
 procedure TProductosService.RegistrarSincronizacion(AConn: TFDConnection; AProductoID: Int64;
-  const ATipoSinc: String);
+  const ATipoSinc: String; const AUsuarioID: Int64);
 var
   LQuery: TFDQuery;
 begin
@@ -404,17 +417,18 @@ begin
   try
     LQuery.Connection := AConn;
     LQuery.SQL.Text :=
-      'INSERT INTO PRODUCTO_SINCRONIZACION (PRODUCTO_ID, TIPO_SINC, ESTADO, ESTADO_REGISTRO) ' +
-      'VALUES (:productoId, :tipoSinc, ''EXITOSO'', ''A'')';
+      'INSERT INTO PRODUCTO_SINCRONIZACION (PRODUCTO_ID, TIPO_SINC, ESTADO, USUARIO_CREO_ID, ESTADO_REGISTRO) ' +
+      'VALUES (:productoId, :tipoSinc, ''EXITOSO'', :usuarioId, ''A'')';
     LQuery.ParamByName('productoId').AsLargeInt := AProductoID;
     LQuery.ParamByName('tipoSinc').AsString := ATipoSinc;
+    LQuery.ParamByName('usuarioId').AsLargeInt := AUsuarioID;
     LQuery.ExecSQL;
   finally
     LQuery.Free;
   end;
 end;
 
-function TProductosService.SincronizarProductos: TSincronizacionResumenDTO;
+function TProductosService.SincronizarProductos(const AUsuarioID: Int64): TSincronizacionResumenDTO;
 var
   LHelisaConn: TFDConnection;
   LHelisaQuery: TFDQuery;
@@ -493,11 +507,14 @@ begin
                   LProducto.Descripcion := LNombre;
                   if LReferencia <> '' then
                     LProducto.CodigoInterno := LReferencia;
+                  if AUsuarioID > 0 then
+                    LProducto.UsuarioModificoID := AUsuarioID;
+                  LProducto.FechaModificacion := Now;
                   fRepository.Update(LProducto);
                 finally
                   LProducto.Free;
                 end;
-                RegistrarSincronizacion(LConn, LExistenteID, 'ACTUALIZADO');
+                RegistrarSincronizacion(LConn, LExistenteID, 'ACTUALIZADO', AUsuarioID);
                 Result.Actualizados := Result.Actualizados + 1;
               end
               else
@@ -511,8 +528,10 @@ begin
                   LProducto.Descripcion := LNombre;
                   LProducto.Activo := True;
                   LProducto.EstadoRegistro := 'A';
+                  if AUsuarioID > 0 then
+                    LProducto.UsuarioCreoID := AUsuarioID;
                   LProducto.Insert;
-                  RegistrarSincronizacion(LConn, LProducto.ID.ValueOrDefault, 'NUEVO');
+                  RegistrarSincronizacion(LConn, LProducto.ID.ValueOrDefault, 'NUEVO', AUsuarioID);
                 finally
                   LProducto.Free;
                 end;

@@ -52,11 +52,19 @@ end;
 procedure TNexoPagoAuthHandler.OnRequest(const AContext: TWebContext;
   const AControllerQualifiedClassName, AActionName: string; var AAuthenticationRequired: Boolean);
 begin
-  // Paso 4 (minimo): solo GET /api/auth/me exige JWT. El resto de endpoints
-  // sigue publico hasta que construyamos el modulo real de permisos
-  // (MODULO/PERMISO/PERFIL_PERMISO) sobre esta base de autenticacion.
-  AAuthenticationRequired := SameText(AControllerQualifiedClassName,
-    'NexoPago.Controllers.Auth.TAuthController') and SameText(AActionName, 'GetMe');
+  // Denegar por defecto: todo exige JWT valido salvo excepciones explicitas.
+  // Antes solo GET /api/auth/me estaba protegido, dejando todos los
+  // endpoints que escriben datos (ordenes, recibos, proveedores, entradas,
+  // sincronizar productos) abiertos sin token.
+  if SameText(AControllerQualifiedClassName, 'NexoPago.Controllers.Health.THealthController') then
+    AAuthenticationRequired := False
+  else if SameText(AControllerQualifiedClassName, 'NexoPago.Controllers.Auth.TAuthController') and
+    SameText(AActionName, 'Register') then
+    // TEMPORAL, ver TAuthController.Register: sin esto no hay forma de crear
+    // el primer usuario. TODO: eliminar o proteger antes de produccion.
+    AAuthenticationRequired := False
+  else
+    AAuthenticationRequired := True;
 end;
 
 procedure TNexoPagoAuthHandler.OnAuthentication(const AContext: TWebContext; const AUserName, APassword: string;
