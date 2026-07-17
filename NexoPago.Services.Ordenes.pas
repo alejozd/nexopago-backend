@@ -14,13 +14,13 @@ type
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
     // Cabecera + lineas en una unica transaccion FireDAC explicita. Retorna
     // el ORDEN_ID recien creado.
-    function CrearOrden(const ADatos: TOrdenCompraCreateDTO): Int64;
+    function CrearOrden(const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64): Int64;
     // Solo permitido si la orden esta en BORRADOR o PENDIENTE (aun no hay
     // mercancia recibida). Reemplaza cabecera + todas las lineas (delete +
     // insert), no hay UPDATE parcial de lineas.
-    procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO);
+    procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64);
     // No revierte recibos ni entradas: solo marca la orden como ANULADA.
-    procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String);
+    procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
   end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);
@@ -53,9 +53,9 @@ type
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
-    function CrearOrden(const ADatos: TOrdenCompraCreateDTO): Int64;
-    procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO);
-    procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String);
+    function CrearOrden(const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64): Int64;
+    procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64);
+    procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
   end;
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
@@ -232,7 +232,7 @@ begin
   Result := 'OC-' + Format('%.4d', [LNext]);
 end;
 
-function TOrdenesService.CrearOrden(const ADatos: TOrdenCompraCreateDTO): Int64;
+function TOrdenesService.CrearOrden(const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64): Int64;
 var
   LConn: TFDConnection;
   LOrden: TOrdenCompra;
@@ -256,6 +256,8 @@ begin
       LOrden.Observaciones := ADatos.Observaciones;
       LOrden.Estado := 'BORRADOR';
       LOrden.EstadoRegistro := 'A';
+      if AUsuarioID > 0 then
+        LOrden.UsuarioCreoID := AUsuarioID;
       LOrden.Insert;
       Result := LOrden.ID.ValueOrDefault;
 
@@ -268,6 +270,8 @@ begin
           LDetalle.Cantidad := LLineaInput.Cantidad;
           LDetalle.PrecioUnitario := LLineaInput.PrecioUnitario;
           LDetalle.EstadoRegistro := 'A';
+          if AUsuarioID > 0 then
+            LDetalle.UsuarioCreoID := AUsuarioID;
           LDetalle.Insert; // SUBTOTAL lo calcula Firebird (COMPUTED BY), nunca se envia
         finally
           LDetalle.Free;
@@ -283,7 +287,8 @@ begin
   end;
 end;
 
-procedure TOrdenesService.ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO);
+procedure TOrdenesService.ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO;
+  const AUsuarioID: Int64);
 var
   LConn: TFDConnection;
   LQuery: TFDQuery;
@@ -310,6 +315,9 @@ begin
       LOrden.FechaPedidoHelisa := ADatos.FechaPedidoHelisa;
       LOrden.TotalPedidoHelisa := ADatos.TotalPedidoHelisa;
       LOrden.Observaciones := ADatos.Observaciones;
+      if AUsuarioID > 0 then
+        LOrden.UsuarioModificoID := AUsuarioID;
+      LOrden.FechaModificacion := Now;
       fOrdenesRepository.Update(LOrden);
 
       // Reemplazo completo de lineas: no hay UPDATE parcial. Sin FK apuntando
@@ -334,6 +342,8 @@ begin
           LDetalle.Cantidad := LLineaInput.Cantidad;
           LDetalle.PrecioUnitario := LLineaInput.PrecioUnitario;
           LDetalle.EstadoRegistro := 'A';
+          if AUsuarioID > 0 then
+            LDetalle.UsuarioCreoID := AUsuarioID;
           LDetalle.Insert; // SUBTOTAL lo calcula Firebird (COMPUTED BY), nunca se envia
         finally
           LDetalle.Free;
@@ -349,7 +359,7 @@ begin
   end;
 end;
 
-procedure TOrdenesService.AnularOrden(const AOrdenID: Int64; const AMotivo: String);
+procedure TOrdenesService.AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
 var
   LConn: TFDConnection;
   LOrden: TOrdenCompra;
@@ -374,6 +384,9 @@ begin
         else
           LOrden.Observaciones := 'Anulacion: ' + LMotivo;
       end;
+      if AUsuarioID > 0 then
+        LOrden.UsuarioModificoID := AUsuarioID;
+      LOrden.FechaModificacion := Now;
       fOrdenesRepository.Update(LOrden);
     finally
       LOrden.Free;

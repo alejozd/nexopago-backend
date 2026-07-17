@@ -13,13 +13,13 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
     // Retorna el RECIBO_ID recien creado. tipoPago se calcula en el Service,
     // nunca se acepta del cliente.
-    function CrearRecibo(const ADatos: TReciboCreateDTO): Int64;
+    function CrearRecibo(const ADatos: TReciboCreateDTO; const AUsuarioID: Int64): Int64;
     // No revierte nada manualmente: montoPagado/saldoPendiente se calculan en
     // vivo con SUM(MONTO) WHERE ESTADO='ACTIVO' (ver GetTotalPagado), asi que
     // marcar el recibo como ANULADO ya lo excluye de esa suma. Tampoco toca
     // ORDEN_COMPRA.ESTADO: ese campo sigue el estado de recepcion de
     // mercancia, no el de pagos.
-    procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String);
+    procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String; const AUsuarioID: Int64);
   end;
 
 procedure RegisterRecibosServices(Container: IMVCServiceContainer);
@@ -46,8 +46,8 @@ type
     constructor Create(ARecibosRepository: IRecibosRepository; AOrdenesRepository: IOrdenesRepository);
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
-    function CrearRecibo(const ADatos: TReciboCreateDTO): Int64;
-    procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String);
+    function CrearRecibo(const ADatos: TReciboCreateDTO; const AUsuarioID: Int64): Int64;
+    procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String; const AUsuarioID: Int64);
   end;
 
 constructor TRecibosService.Create(ARecibosRepository: IRecibosRepository; AOrdenesRepository: IOrdenesRepository);
@@ -138,7 +138,7 @@ begin
   Result := 'REC-' + Format('%.4d', [LNext]);
 end;
 
-function TRecibosService.CrearRecibo(const ADatos: TReciboCreateDTO): Int64;
+function TRecibosService.CrearRecibo(const ADatos: TReciboCreateDTO; const AUsuarioID: Int64): Int64;
 var
   LConn: TFDConnection;
   LOrden: TOrdenCompra;
@@ -190,6 +190,8 @@ begin
         LRecibo.Estado := 'ACTIVO';
         LRecibo.Observaciones := ADatos.Observaciones;
         LRecibo.EstadoRegistro := 'A';
+        if AUsuarioID > 0 then
+          LRecibo.UsuarioCreoID := AUsuarioID;
         LRecibo.Insert;
         Result := LRecibo.ID.ValueOrDefault;
       finally
@@ -205,7 +207,7 @@ begin
   end;
 end;
 
-procedure TRecibosService.AnularRecibo(const AReciboID: Int64; const AMotivo: String);
+procedure TRecibosService.AnularRecibo(const AReciboID: Int64; const AMotivo: String; const AUsuarioID: Int64);
 var
   LConn: TFDConnection;
   LRecibo: TReciboCajaChipis;
@@ -230,6 +232,9 @@ begin
         else
           LRecibo.Observaciones := 'Anulacion: ' + LMotivo;
       end;
+      if AUsuarioID > 0 then
+        LRecibo.UsuarioModificoID := AUsuarioID;
+      LRecibo.FechaModificacion := Now;
       fRecibosRepository.Update(LRecibo);
     finally
       LRecibo.Free;

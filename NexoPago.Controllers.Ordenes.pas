@@ -62,7 +62,8 @@ type
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  NexoPago.Security.CurrentUser;
 
 constructor TOrdenesController.Create(AOrdenesService: IOrdenesService);
 begin
@@ -86,7 +87,7 @@ var
   LNewID: Int64;
   LBody: TCreatedIdDTO;
 begin
-  LNewID := fOrdenesService.CrearOrden(ADatos);
+  LNewID := fOrdenesService.CrearOrden(ADatos, GetCurrentUserID(Context));
   LBody := TCreatedIdDTO.Create;
   LBody.ID := LNewID;
   Result := CreatedResponse('/api/ordenes/' + LNewID.ToString, LBody);
@@ -94,13 +95,13 @@ end;
 
 function TOrdenesController.UpdateOrden(const id: Int64; const ADatos: TOrdenCompraCreateDTO): IMVCResponse;
 begin
-  fOrdenesService.ActualizarOrden(id, ADatos);
+  fOrdenesService.ActualizarOrden(id, ADatos, GetCurrentUserID(Context));
   Result := OKResponse('Orden actualizada correctamente');
 end;
 
 function TOrdenesController.AnularOrden(const id: Int64; const AMotivo: String): IMVCResponse;
 begin
-  fOrdenesService.AnularOrden(id, AMotivo);
+  fOrdenesService.AnularOrden(id, AMotivo, GetCurrentUserID(Context));
   Result := OKResponse('Orden anulada correctamente');
 end;
 

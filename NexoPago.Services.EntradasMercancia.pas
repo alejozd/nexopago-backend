@@ -15,7 +15,7 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
     // Registra la entrada y actualiza ORDEN_COMPRA.ESTADO en la misma
     // transaccion. Retorna el ENTRADA_ID recien creado.
-    function RegistrarEntrada(const ADatos: TEntradaCreateDTO): Int64;
+    function RegistrarEntrada(const ADatos: TEntradaCreateDTO; const AUsuarioID: Int64): Int64;
   end;
 
 procedure RegisterEntradasMercanciaServices(Container: IMVCServiceContainer);
@@ -41,7 +41,7 @@ type
     constructor Create(AEntradasRepository: IEntradasMercanciaRepository; AOrdenesRepository: IOrdenesRepository);
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
-    function RegistrarEntrada(const ADatos: TEntradaCreateDTO): Int64;
+    function RegistrarEntrada(const ADatos: TEntradaCreateDTO; const AUsuarioID: Int64): Int64;
   end;
 
 constructor TEntradasMercanciaService.Create(AEntradasRepository: IEntradasMercanciaRepository;
@@ -116,7 +116,8 @@ begin
   end;
 end;
 
-function TEntradasMercanciaService.RegistrarEntrada(const ADatos: TEntradaCreateDTO): Int64;
+function TEntradasMercanciaService.RegistrarEntrada(const ADatos: TEntradaCreateDTO;
+  const AUsuarioID: Int64): Int64;
 var
   LConn: TFDConnection;
   LOrden: TOrdenCompra;
@@ -149,6 +150,8 @@ begin
         LEntrada.FechaEntrada := ADatos.FechaEntrada;
         LEntrada.Observaciones := ADatos.Observaciones;
         LEntrada.EstadoRegistro := 'A';
+        if AUsuarioID > 0 then
+          LEntrada.UsuarioCreoID := AUsuarioID;
         LEntrada.Insert;
         Result := LEntrada.ID.ValueOrDefault;
       finally
@@ -161,6 +164,9 @@ begin
         LOrden.Estado := 'RECIBIDA'
       else
         LOrden.Estado := 'PARCIALMENTE_RECIBIDA';
+      if AUsuarioID > 0 then
+        LOrden.UsuarioModificoID := AUsuarioID;
+      LOrden.FechaModificacion := Now;
       fOrdenesRepository.Update(LOrden);
     finally
       LOrden.Free;
