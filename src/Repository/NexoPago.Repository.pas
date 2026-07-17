@@ -191,16 +191,24 @@ type
     TieneObservaciones: Boolean;
   end;
 
+  TEntradasResumenRow = record
+    Total: Int64;
+    UltimoMes: Int64;
+    OrdenesAsociadas: Int64;
+  end;
+
   IEntradasMercanciaRepository = interface(IMVCRepository<TEntradaMercancia>)
     ['{72DE6C24-8744-40F2-A5F5-D5741CB0793A}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
     // (whitelist), nunca texto crudo del cliente.
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
+    function GetResumen: TEntradasResumenRow;
   end;
 
   TEntradasMercanciaRepository = class(TMVCRepository<TEntradaMercancia>, IEntradasMercanciaRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
+    function GetResumen: TEntradasResumenRow;
   end;
 
   IModuloRepository = interface(IMVCRepository<TModulo>)
@@ -669,6 +677,28 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TEntradasMercanciaRepository.GetResumen: TEntradasResumenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT ' +
+      '  (SELECT COUNT(*) FROM ENTRADAS_MERCANCIA) AS TOTAL, ' +
+      '  (SELECT COUNT(*) FROM ENTRADAS_MERCANCIA WHERE FECHA_CREACION >= DATEADD(-30 DAY TO CURRENT_DATE)) AS ULTIMO_MES, ' +
+      '  (SELECT COUNT(DISTINCT ORDEN_ID) FROM ENTRADAS_MERCANCIA) AS ORDENES_ASOCIADAS ' +
+      'FROM RDB$DATABASE';
+    LQuery.Open;
+    Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
+    Result.UltimoMes := LQuery.FieldByName('ULTIMO_MES').AsLargeInt;
+    Result.OrdenesAsociadas := LQuery.FieldByName('ORDENES_ASOCIADAS').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 
