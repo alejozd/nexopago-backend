@@ -28,9 +28,35 @@ type
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('sortField', '')] ASortField: String;
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
+
+    [MVCSwagSummary('Proveedores', 'Crea un proveedor')]
+    [MVCPath('/proveedores')]
+    [MVCHTTPMethod([httpPOST])]
+    function CreateProveedor(const [MVCFromBody] ADatos: TProveedorCreateDTO): IMVCResponse;
+
+    [MVCSwagSummary('Proveedores', 'Actualiza los datos de un proveedor')]
+    [MVCPath('/proveedores/($id)')]
+    [MVCHTTPMethod([httpPUT])]
+    function UpdateProveedor(const id: Int64; const [MVCFromBody] ADatos: TProveedorCreateDTO): IMVCResponse;
+
+    [MVCSwagSummary('Proveedores', 'Activa o inactiva un proveedor')]
+    [MVCPath('/proveedores/($id)/estado')]
+    [MVCHTTPMethod([httpPUT])]
+    function CambiarEstadoProveedor(const id: Int64;
+      const [MVCFromQueryString('activo')] AActivo: Boolean): IMVCResponse;
+
+    // Rechaza el borrado (409) si el proveedor tiene ordenes de compra
+    // asociadas: la FK no tiene cascada.
+    [MVCSwagSummary('Proveedores', 'Elimina un proveedor (rechaza si tiene ordenes asociadas)')]
+    [MVCPath('/proveedores/($id)')]
+    [MVCHTTPMethod([httpDELETE])]
+    function DeleteProveedor(const id: Int64): IMVCResponse;
   end;
 
 implementation
+
+uses
+  System.SysUtils;
 
 constructor TProveedoresController.Create(AProveedoresService: IProveedoresService);
 begin
@@ -42,6 +68,32 @@ function TProveedoresController.GetProveedores(const APage, ARows: Integer; cons
   const ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
 begin
   Result := fProveedoresService.GetPaged(APage, ARows, ASortField, ASortOrder);
+end;
+
+function TProveedoresController.CreateProveedor(const ADatos: TProveedorCreateDTO): IMVCResponse;
+var
+  LNewID: Int64;
+begin
+  LNewID := fProveedoresService.CrearProveedor(ADatos);
+  Result := CreatedResponse('/api/proveedores/' + LNewID.ToString, 'Proveedor creado correctamente');
+end;
+
+function TProveedoresController.UpdateProveedor(const id: Int64; const ADatos: TProveedorCreateDTO): IMVCResponse;
+begin
+  fProveedoresService.ActualizarProveedor(id, ADatos);
+  Result := OKResponse('Proveedor actualizado correctamente');
+end;
+
+function TProveedoresController.CambiarEstadoProveedor(const id: Int64; const AActivo: Boolean): IMVCResponse;
+begin
+  fProveedoresService.CambiarEstadoProveedor(id, AActivo);
+  Result := OKResponse('Estado del proveedor actualizado correctamente');
+end;
+
+function TProveedoresController.DeleteProveedor(const id: Int64): IMVCResponse;
+begin
+  fProveedoresService.EliminarProveedor(id);
+  Result := OKResponse('Proveedor eliminado correctamente');
 end;
 
 end.

@@ -43,6 +43,20 @@ type
     [MVCPath('/ordenes')]
     [MVCHTTPMethod([httpPOST])]
     function CreateOrden(const [MVCFromBody] ADatos: TOrdenCompraCreateDTO): IMVCResponse;
+
+    // Solo permitido si la orden esta en BORRADOR o PENDIENTE. Reemplaza
+    // cabecera + todas las lineas (ver TOrdenesService.ActualizarOrden).
+    [MVCSwagSummary('Ordenes', 'Actualiza una orden de compra (solo BORRADOR/PENDIENTE)')]
+    [MVCPath('/ordenes/($id)')]
+    [MVCHTTPMethod([httpPUT])]
+    function UpdateOrden(const id: Int64; const [MVCFromBody] ADatos: TOrdenCompraCreateDTO): IMVCResponse;
+
+    // No revierte recibos ni entradas: solo marca la orden como ANULADA.
+    [MVCSwagSummary('Ordenes', 'Anula una orden de compra (no la elimina)')]
+    [MVCPath('/ordenes/($id)/anular')]
+    [MVCHTTPMethod([httpPUT])]
+    function AnularOrden(const id: Int64;
+      const [MVCFromQueryString('motivo', '')] AMotivo: String): IMVCResponse;
   end;
 
 implementation
@@ -70,9 +84,24 @@ end;
 function TOrdenesController.CreateOrden(const ADatos: TOrdenCompraCreateDTO): IMVCResponse;
 var
   LNewID: Int64;
+  LBody: TCreatedIdDTO;
 begin
   LNewID := fOrdenesService.CrearOrden(ADatos);
-  Result := CreatedResponse('/api/ordenes/' + LNewID.ToString, 'Orden creada correctamente');
+  LBody := TCreatedIdDTO.Create;
+  LBody.ID := LNewID;
+  Result := CreatedResponse('/api/ordenes/' + LNewID.ToString, LBody);
+end;
+
+function TOrdenesController.UpdateOrden(const id: Int64; const ADatos: TOrdenCompraCreateDTO): IMVCResponse;
+begin
+  fOrdenesService.ActualizarOrden(id, ADatos);
+  Result := OKResponse('Orden actualizada correctamente');
+end;
+
+function TOrdenesController.AnularOrden(const id: Int64; const AMotivo: String): IMVCResponse;
+begin
+  fOrdenesService.AnularOrden(id, AMotivo);
+  Result := OKResponse('Orden anulada correctamente');
 end;
 
 end.

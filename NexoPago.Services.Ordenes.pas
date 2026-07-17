@@ -15,6 +15,12 @@ type
     // Cabecera + lineas en una unica transaccion FireDAC explicita. Retorna
     // el ORDEN_ID recien creado.
     function CrearOrden(const ADatos: TOrdenCompraCreateDTO): Int64;
+    // Solo permitido si la orden esta en BORRADOR o PENDIENTE (aun no hay
+    // mercancia recibida). Reemplaza cabecera + todas las lineas (delete +
+    // insert), no hay UPDATE parcial de lineas.
+    procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO);
+    // No revierte recibos ni entradas: solo marca la orden como ANULADA.
+    procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String);
   end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);
@@ -27,6 +33,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.ActiveRecord,
   FireDAC.Comp.Client,
+  FireDAC.Stan.Param,
   NexoPago.Repository,
   NexoPago.Entities;
 
@@ -47,6 +54,8 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
     function CrearOrden(const ADatos: TOrdenCompraCreateDTO): Int64;
+    procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO);
+    procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String);
   end;
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
@@ -264,6 +273,108 @@ begin
           LDetalle.Free;
         end;
       end;
+    finally
+      LOrden.Free;
+    end;
+    LConn.Commit;
+  except
+    LConn.Rollback;
+    raise;
+  end;
+end;
+
+procedure TOrdenesService.ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO);
+var
+  LConn: TFDConnection;
+  LQuery: TFDQuery;
+  LOrden: TOrdenCompra;
+  LLineaInput: TOrdenCompraLineaCreateDTO;
+  LDetalle: TOrdenCompraDetalle;
+begin
+  ValidarDatosCreacion(ADatos);
+
+  LConn := TMVCActiveRecord.CurrentConnection;
+  LConn.StartTransaction;
+  try
+    LOrden := fOrdenesRepository.GetByPK(AOrdenID, False);
+    if LOrden = nil then
+      raise EMVCException.Create(HTTP_STATUS.NotFound, 'Orden no encontrada');
+    try
+      if (LOrden.Estado <> 'BORRADOR') and (LOrden.Estado <> 'PENDIENTE') then
+        raise EMVCException.Create(HTTP_STATUS.BadRequest,
+          'Solo se pueden editar ordenes en estado BORRADOR o PENDIENTE');
+
+      LOrden.ProveedorID := ADatos.ProveedorID;
+      LOrden.FechaOrden := ADatos.FechaOrden;
+      LOrden.NumeroPedidoHelisa := ADatos.NumeroPedidoHelisa;
+      LOrden.FechaPedidoHelisa := ADatos.FechaPedidoHelisa;
+      LOrden.TotalPedidoHelisa := ADatos.TotalPedidoHelisa;
+      LOrden.Observaciones := ADatos.Observaciones;
+      fOrdenesRepository.Update(LOrden);
+
+      // Reemplazo completo de lineas: no hay UPDATE parcial. Sin FK apuntando
+      // a ORDEN_COMPRA_DETALLE (confirmado en el schema), borrar e insertar
+      // de nuevo es seguro.
+      LQuery := TFDQuery.Create(nil);
+      try
+        LQuery.Connection := LConn;
+        LQuery.SQL.Text := 'DELETE FROM ORDEN_COMPRA_DETALLE WHERE ORDEN_ID = :ordenId';
+        LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
+        LQuery.ExecSQL;
+      finally
+        LQuery.Free;
+      end;
+
+      for LLineaInput in ADatos.Detalles do
+      begin
+        LDetalle := TOrdenCompraDetalle.Create;
+        try
+          LDetalle.OrdenID := AOrdenID;
+          LDetalle.ProductoID := LLineaInput.ProductoID;
+          LDetalle.Cantidad := LLineaInput.Cantidad;
+          LDetalle.PrecioUnitario := LLineaInput.PrecioUnitario;
+          LDetalle.EstadoRegistro := 'A';
+          LDetalle.Insert; // SUBTOTAL lo calcula Firebird (COMPUTED BY), nunca se envia
+        finally
+          LDetalle.Free;
+        end;
+      end;
+    finally
+      LOrden.Free;
+    end;
+    LConn.Commit;
+  except
+    LConn.Rollback;
+    raise;
+  end;
+end;
+
+procedure TOrdenesService.AnularOrden(const AOrdenID: Int64; const AMotivo: String);
+var
+  LConn: TFDConnection;
+  LOrden: TOrdenCompra;
+  LMotivo: String;
+begin
+  LConn := TMVCActiveRecord.CurrentConnection;
+  LConn.StartTransaction;
+  try
+    LOrden := fOrdenesRepository.GetByPK(AOrdenID, False);
+    if LOrden = nil then
+      raise EMVCException.Create(HTTP_STATUS.NotFound, 'Orden no encontrada');
+    try
+      if LOrden.Estado = 'ANULADA' then
+        raise EMVCException.Create(HTTP_STATUS.BadRequest, 'La orden ya esta anulada');
+
+      LOrden.Estado := 'ANULADA';
+      LMotivo := Trim(AMotivo);
+      if LMotivo <> '' then
+      begin
+        if LOrden.Observaciones.HasValue and (LOrden.Observaciones.Value <> '') then
+          LOrden.Observaciones := LOrden.Observaciones.Value + ' | Anulacion: ' + LMotivo
+        else
+          LOrden.Observaciones := 'Anulacion: ' + LMotivo;
+      end;
+      fOrdenesRepository.Update(LOrden);
     finally
       LOrden.Free;
     end;
