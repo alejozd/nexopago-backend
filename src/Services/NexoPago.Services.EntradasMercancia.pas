@@ -16,6 +16,8 @@ type
     // Registra la entrada y actualiza ORDEN_COMPRA.ESTADO en la misma
     // transaccion. Retorna el ENTRADA_ID recien creado.
     function RegistrarEntrada(const ADatos: TEntradaCreateDTO; const AUsuarioID: Int64): Int64;
+    // Tarjetas KPI del listado: Total, Ultimo mes, Ordenes asociadas.
+    function GetResumen: TEntradasResumenDTO;
   end;
 
 procedure RegisterEntradasMercanciaServices(Container: IMVCServiceContainer);
@@ -42,6 +44,7 @@ type
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
     function RegistrarEntrada(const ADatos: TEntradaCreateDTO; const AUsuarioID: Int64): Int64;
+    function GetResumen: TEntradasResumenDTO;
   end;
 
 constructor TEntradasMercanciaService.Create(AEntradasRepository: IEntradasMercanciaRepository;
@@ -176,6 +179,17 @@ begin
     LConn.Rollback;
     raise;
   end;
+end;
+
+function TEntradasMercanciaService.GetResumen: TEntradasResumenDTO;
+var
+  LRow: TEntradasResumenRow;
+begin
+  LRow := fEntradasRepository.GetResumen;
+  Result := TEntradasResumenDTO.Create;
+  Result.Total := LRow.Total;
+  Result.UltimoMes := LRow.UltimoMes;
+  Result.OrdenesAsociadas := LRow.OrdenesAsociadas;
 end;
 
 procedure RegisterEntradasMercanciaServices(Container: IMVCServiceContainer);

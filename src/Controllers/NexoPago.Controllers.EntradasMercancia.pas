@@ -36,6 +36,12 @@ type
     [MVCPath('/entradas')]
     [MVCHTTPMethod([httpPOST])]
     function CreateEntrada(const [MVCFromBody] ADatos: TEntradaCreateDTO): IMVCResponse;
+
+    // Tarjetas KPI del listado: Total, Ultimo mes, Ordenes asociadas.
+    [MVCSwagSummary('Entradas', 'Resumen de entradas: total, ultimo mes y ordenes asociadas')]
+    [MVCPath('/entradas/resumen')]
+    [MVCHTTPMethod([httpGET])]
+    function GetResumen: TEntradasResumenDTO;
   end;
 
 implementation
@@ -60,6 +66,11 @@ function TEntradasMercanciaController.CreateEntrada(const ADatos: TEntradaCreate
 begin
   fEntradasService.RegistrarEntrada(ADatos, GetCurrentUserID(Context));
   Result := CreatedResponse('/api/ordenes/' + ADatos.OrdenID.ToString, 'Entrada de mercancia registrada correctamente');
+end;
+
+function TEntradasMercanciaController.GetResumen: TEntradasResumenDTO;
+begin
+  Result := fEntradasService.GetResumen;
 end;
 
 end.
