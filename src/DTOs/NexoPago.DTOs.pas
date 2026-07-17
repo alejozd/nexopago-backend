@@ -418,6 +418,20 @@ type
   end;
 
   [MVCNameCase(ncCamelCase)]
+  TRecibosResumenDTO = class
+  private
+    fTotal: Int64;
+    fActivos: Int64;
+    fAnulados: Int64;
+    fMontoTotal: Currency;
+  public
+    property Total: Int64 read fTotal write fTotal;
+    property Activos: Int64 read fActivos write fActivos;
+    property Anulados: Int64 read fAnulados write fAnulados;
+    property MontoTotal: Currency read fMontoTotal write fMontoTotal;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
   TProveedoresResumenDTO = class
   private
     fTotal: Int64;

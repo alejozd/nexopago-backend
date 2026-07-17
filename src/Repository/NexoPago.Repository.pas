@@ -148,6 +148,13 @@ type
     Estado: String;
   end;
 
+  TRecibosResumenRow = record
+    Total: Int64;
+    Activos: Int64;
+    Anulados: Int64;
+    MontoTotal: Currency;
+  end;
+
   IRecibosRepository = interface(IMVCRepository<TReciboCajaChipis>)
     ['{2C83B391-95D4-4F8D-BBED-2EFECD61CCE0}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
@@ -157,12 +164,14 @@ type
     // para "pagado"/"saldo pendiente", usada tanto por Ordenes (detalle)
     // como por Recibos (validacion al crear).
     function GetTotalPagado(const AOrdenID: Int64): Currency;
+    function GetResumen: TRecibosResumenRow;
   end;
 
   TRecibosRepository = class(TMVCRepository<TReciboCajaChipis>, IRecibosRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TReciboCajaListRow>;
     function GetTotalPagado(const AOrdenID: Int64): Currency;
+    function GetResumen: TRecibosResumenRow;
   end;
 
   // Fila plana para el listado de auditoria de entradas: cabecera + numero
@@ -585,6 +594,30 @@ begin
     LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
     LQuery.Open;
     Result := LQuery.FieldByName('TOTAL_PAGADO').AsCurrency;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TRecibosRepository.GetResumen: TRecibosResumenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT ' +
+      '  (SELECT COUNT(*) FROM RECIBO_CAJA_CHIPIS) AS TOTAL, ' +
+      '  (SELECT COUNT(*) FROM RECIBO_CAJA_CHIPIS WHERE ESTADO = ''ACTIVO'') AS ACTIVOS, ' +
+      '  (SELECT COUNT(*) FROM RECIBO_CAJA_CHIPIS WHERE ESTADO = ''ANULADO'') AS ANULADOS, ' +
+      '  (SELECT COALESCE(SUM(MONTO), 0) FROM RECIBO_CAJA_CHIPIS WHERE ESTADO = ''ACTIVO'') AS MONTO_TOTAL ' +
+      'FROM RDB$DATABASE';
+    LQuery.Open;
+    Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
+    Result.Activos := LQuery.FieldByName('ACTIVOS').AsLargeInt;
+    Result.Anulados := LQuery.FieldByName('ANULADOS').AsLargeInt;
+    Result.MontoTotal := LQuery.FieldByName('MONTO_TOTAL').AsCurrency;
   finally
     LQuery.Free;
   end;
