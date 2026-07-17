@@ -406,6 +406,18 @@ type
   end;
 
   [MVCNameCase(ncCamelCase)]
+  TProveedoresResumenDTO = class
+  private
+    fTotal: Int64;
+    fActivos: Int64;
+    fInactivos: Int64;
+  public
+    property Total: Int64 read fTotal write fTotal;
+    property Activos: Int64 read fActivos write fActivos;
+    property Inactivos: Int64 read fInactivos write fInactivos;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
   TModuloDTO = class
   private
     fID: Int64;

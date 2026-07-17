@@ -25,6 +25,8 @@ type
     // Rechaza el borrado (409) si el proveedor tiene ordenes de compra
     // asociadas: la FK no tiene cascada.
     procedure EliminarProveedor(const AProveedorID: Int64);
+    // Tarjetas KPI del listado: Total, Activos, Inactivos.
+    function GetResumen: TProveedoresResumenDTO;
   end;
 
   IProductosService = interface
@@ -89,6 +91,7 @@ type
       const AUsuarioID: Int64);
     procedure CambiarEstadoProveedor(const AProveedorID: Int64; const AActivo: Boolean; const AUsuarioID: Int64);
     procedure EliminarProveedor(const AProveedorID: Int64);
+    function GetResumen: TProveedoresResumenDTO;
   end;
 
   TProductosService = class(TInterfacedObject, IProductosService)
@@ -332,6 +335,17 @@ begin
     LConn.Rollback;
     raise;
   end;
+end;
+
+function TProveedoresService.GetResumen: TProveedoresResumenDTO;
+var
+  LRow: TProveedoresResumenRow;
+begin
+  LRow := fRepository.GetResumen;
+  Result := TProveedoresResumenDTO.Create;
+  Result.Total := LRow.Total;
+  Result.Activos := LRow.Activos;
+  Result.Inactivos := LRow.Inactivos;
 end;
 
 constructor TProductosService.Create(ARepository: IProductoRepository);

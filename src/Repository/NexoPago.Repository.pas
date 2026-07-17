@@ -57,11 +57,20 @@ type
     function GetResumen: TUsuariosResumenRow;
   end;
 
+  TProveedoresResumenRow = record
+    Total: Int64;
+    Activos: Int64;
+    Inactivos: Int64;
+  end;
+
   IProveedorRepository = interface(IMVCRepository<TProveedor>)
     ['{AA1CC4AE-608A-40AF-8E22-73A269790B8F}']
+    function GetResumen: TProveedoresResumenRow;
   end;
 
   TProveedorRepository = class(TMVCRepository<TProveedor>, IProveedorRepository)
+  public
+    function GetResumen: TProveedoresResumenRow;
   end;
 
   TProductoListRow = record
@@ -667,6 +676,28 @@ begin
     Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
     Result.Activos := LQuery.FieldByName('ACTIVOS').AsLargeInt;
     Result.TotalRoles := LQuery.FieldByName('TOTAL_ROLES').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TProveedorRepository.GetResumen: TProveedoresResumenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT ' +
+      '  (SELECT COUNT(*) FROM PROVEEDOR) AS TOTAL, ' +
+      '  (SELECT COUNT(*) FROM PROVEEDOR WHERE ACTIVO = 1) AS ACTIVOS, ' +
+      '  (SELECT COUNT(*) FROM PROVEEDOR WHERE ACTIVO = 0) AS INACTIVOS ' +
+      'FROM RDB$DATABASE';
+    LQuery.Open;
+    Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
+    Result.Activos := LQuery.FieldByName('ACTIVOS').AsLargeInt;
+    Result.Inactivos := LQuery.FieldByName('INACTIVOS').AsLargeInt;
   finally
     LQuery.Free;
   end;

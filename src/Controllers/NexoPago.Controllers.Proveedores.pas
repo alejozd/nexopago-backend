@@ -51,6 +51,12 @@ type
     [MVCPath('/proveedores/($id)')]
     [MVCHTTPMethod([httpDELETE])]
     function DeleteProveedor(const id: Int64): IMVCResponse;
+
+    // Tarjetas KPI del listado: Total, Activos, Inactivos.
+    [MVCSwagSummary('Proveedores', 'Resumen de proveedores: total, activos e inactivos')]
+    [MVCPath('/proveedores/resumen')]
+    [MVCHTTPMethod([httpGET])]
+    function GetResumen: TProveedoresResumenDTO;
   end;
 
 implementation
@@ -95,6 +101,11 @@ function TProveedoresController.DeleteProveedor(const id: Int64): IMVCResponse;
 begin
   fProveedoresService.EliminarProveedor(id);
   Result := OKResponse('Proveedor eliminado correctamente');
+end;
+
+function TProveedoresController.GetResumen: TProveedoresResumenDTO;
+begin
+  Result := fProveedoresService.GetResumen;
 end;
 
 end.
