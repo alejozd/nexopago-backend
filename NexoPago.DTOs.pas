@@ -38,6 +38,18 @@ type
     property TotalRecords: Int64 read fTotalRecords write fTotalRecords;
   end;
 
+  // Body de las respuestas 201 Created donde el cliente necesita el id nuevo
+  // de inmediato (ej. navegar al detalle recien creado): el header Location
+  // no es una opcion fiable desde el navegador, CORS no lo expone por
+  // defecto a JavaScript.
+  [MVCNameCase(ncCamelCase)]
+  TCreatedIdDTO = class
+  private
+    fID: Int64;
+  public
+    property ID: Int64 read fID write fID;
+  end;
+
   [MVCNameCase(ncCamelCase)]
   TProveedorDTO = class
   private
@@ -60,6 +72,69 @@ type
     property Telefono: NullableString read fTelefono write fTelefono;
     property CorreoElectronico: NullableString read fCorreoElectronico write fCorreoElectronico;
     property Activo: Boolean read fActivo write fActivo;
+  end;
+
+  // Body de POST /api/proveedores y PUT /api/proveedores/(id). Sin id/activo:
+  // el id lo asigna Firebird (IDENTITY), activo se cambia por su propio
+  // endpoint (PUT /api/proveedores/(id)/estado).
+  [MVCNameCase(ncCamelCase)]
+  TProveedorCreateDTO = class
+  private
+    fNit: String;
+    fCodigoHelisa: NullableInt32;
+    fCodigoInterno: NullableString;
+    fNombre: String;
+    fDireccion: NullableString;
+    fTelefono: NullableString;
+    fCorreoElectronico: NullableString;
+  public
+    property Nit: String read fNit write fNit;
+    property CodigoHelisa: NullableInt32 read fCodigoHelisa write fCodigoHelisa;
+    property CodigoInterno: NullableString read fCodigoInterno write fCodigoInterno;
+    property Nombre: String read fNombre write fNombre;
+    property Direccion: NullableString read fDireccion write fDireccion;
+    property Telefono: NullableString read fTelefono write fTelefono;
+    property CorreoElectronico: NullableString read fCorreoElectronico write fCorreoElectronico;
+  end;
+
+  // Fila del listado paginado GET /api/productos. Solo lectura (catalogo
+  // sincronizado desde Helisa, ver CONTEXTO_PROYECTO.md 3.4): sin DTO de
+  // creacion/edicion.
+  [MVCNameCase(ncCamelCase)]
+  TProductoDTO = class
+  private
+    fID: Int64;
+    fCodigoHelisa: String;
+    fSubCodigoHelisa: String;
+    fCodigoInterno: NullableString;
+    fDescripcion: String;
+    fUnidadMedida: NullableString;
+    fPrecioReferencia: NullableCurrency;
+    fActivo: Boolean;
+  public
+    property ID: Int64 read fID write fID;
+    property CodigoHelisa: String read fCodigoHelisa write fCodigoHelisa;
+    property SubCodigoHelisa: String read fSubCodigoHelisa write fSubCodigoHelisa;
+    property CodigoInterno: NullableString read fCodigoInterno write fCodigoInterno;
+    property Descripcion: String read fDescripcion write fDescripcion;
+    property UnidadMedida: NullableString read fUnidadMedida write fUnidadMedida;
+    property PrecioReferencia: NullableCurrency read fPrecioReferencia write fPrecioReferencia;
+    property Activo: Boolean read fActivo write fActivo;
+  end;
+
+  // Respuesta de POST /api/productos/sincronizar.
+  [MVCNameCase(ncCamelCase)]
+  TSincronizacionResumenDTO = class
+  private
+    fTotalLeidos: Integer;
+    fNuevos: Integer;
+    fActualizados: Integer;
+    fFechaHoraSinc: TDateTime;
+  public
+    property TotalLeidos: Integer read fTotalLeidos write fTotalLeidos;
+    property Nuevos: Integer read fNuevos write fNuevos;
+    property Actualizados: Integer read fActualizados write fActualizados;
+    property FechaHoraSinc: TDateTime read fFechaHoraSinc write fFechaHoraSinc;
   end;
 
   [MVCNameCase(ncCamelCase)]

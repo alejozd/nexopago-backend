@@ -25,6 +25,7 @@ uses
   NexoPago.Controllers.Ordenes,
   NexoPago.Controllers.Health,
   NexoPago.Controllers.Proveedores,
+  NexoPago.Controllers.Productos,
   NexoPago.Controllers.Auth,
   NexoPago.Controllers.Recibos,
   NexoPago.Controllers.EntradasMercancia,
@@ -65,6 +66,7 @@ begin
   fMVC.AddController(TOrdenesController);
   fMVC.AddController(THealthController);
   fMVC.AddController(TProveedoresController);
+  fMVC.AddController(TProductosController);
   fMVC.AddController(TAuthController);
   fMVC.AddController(TRecibosController);
   fMVC.AddController(TEntradasMercanciaController);

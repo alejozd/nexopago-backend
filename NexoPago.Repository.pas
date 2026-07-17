@@ -64,11 +64,33 @@ type
   TProveedorRepository = class(TMVCRepository<TProveedor>, IProveedorRepository)
   end;
 
+  TProductoListRow = record
+    ProductoID: Int64;
+    CodigoHelisa: String;
+    SubCodigoHelisa: String;
+    CodigoInterno: String;
+    TieneCodigoInterno: Boolean;
+    Descripcion: String;
+    UnidadMedida: String;
+    TieneUnidadMedida: Boolean;
+    PrecioReferencia: Currency;
+    TienePrecioReferencia: Boolean;
+    Activo: Boolean;
+  end;
+
   IProductoRepository = interface(IMVCRepository<TProducto>)
     ['{19F0120A-2539-45C8-BD08-5AA673DEFCA7}']
+    // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
+    // (whitelist), nunca texto crudo del cliente. ASearch filtra por
+    // DESCRIPCION o CODIGO_INTERNO (buscador de la pantalla de Productos).
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TProductoListRow>;
+    function CountBySearch(const ASearch: String): Int64;
   end;
 
   TProductoRepository = class(TMVCRepository<TProducto>, IProductoRepository)
+  public
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TProductoListRow>;
+    function CountBySearch(const ASearch: String): Int64;
   end;
 
   // Fila plana para el listado paginado de ordenes: cabecera + nombre del
@@ -356,6 +378,93 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TProductoRepository.GetListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL, ASearch: String): TArray<TProductoListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TProductoListRow>;
+  LRow: TProductoListRow;
+begin
+  LRows := TList<TProductoListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection;
+      // Dos ramas de SQL en vez de un truco de parametro (:search = '') en la
+      // misma sentencia que el LIKE: Firebird infiere el tipo/tamano de un
+      // parametro reutilizado a partir de su primer uso, y ':search=""'' lo
+      // tipaba como CHAR(0), rechazando luego el valor real del LIKE.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  PRODUCTO_ID, CODIGO_HELISA, SUB_CODIGO_HELISA, CODIGO_INTERNO, ' +
+          '  DESCRIPCION, UNIDAD_MEDIDA, PRECIO_REFERENCIA, ACTIVO ' +
+          'FROM PRODUCTO ' +
+          'ORDER BY ' + ASortColumnSQL
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  PRODUCTO_ID, CODIGO_HELISA, SUB_CODIGO_HELISA, CODIGO_INTERNO, ' +
+          '  DESCRIPCION, UNIDAD_MEDIDA, PRECIO_REFERENCIA, ACTIVO ' +
+          'FROM PRODUCTO ' +
+          'WHERE (UPPER(DESCRIPCION) LIKE :search) OR (UPPER(CODIGO_INTERNO) LIKE :search) ' +
+          'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.ProductoID := LQuery.FieldByName('PRODUCTO_ID').AsLargeInt;
+        LRow.CodigoHelisa := LQuery.FieldByName('CODIGO_HELISA').AsString;
+        LRow.SubCodigoHelisa := LQuery.FieldByName('SUB_CODIGO_HELISA').AsString;
+        LRow.TieneCodigoInterno := not LQuery.FieldByName('CODIGO_INTERNO').IsNull;
+        if LRow.TieneCodigoInterno then
+          LRow.CodigoInterno := LQuery.FieldByName('CODIGO_INTERNO').AsString;
+        LRow.Descripcion := LQuery.FieldByName('DESCRIPCION').AsString;
+        LRow.TieneUnidadMedida := not LQuery.FieldByName('UNIDAD_MEDIDA').IsNull;
+        if LRow.TieneUnidadMedida then
+          LRow.UnidadMedida := LQuery.FieldByName('UNIDAD_MEDIDA').AsString;
+        LRow.TienePrecioReferencia := not LQuery.FieldByName('PRECIO_REFERENCIA').IsNull;
+        if LRow.TienePrecioReferencia then
+          LRow.PrecioReferencia := LQuery.FieldByName('PRECIO_REFERENCIA').AsCurrency;
+        LRow.Activo := LQuery.FieldByName('ACTIVO').AsInteger <> 0;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TProductoRepository.CountBySearch(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text := 'SELECT COUNT(*) AS CANTIDAD FROM PRODUCTO'
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD FROM PRODUCTO ' +
+        'WHERE (UPPER(DESCRIPCION) LIKE :search) OR (UPPER(CODIGO_INTERNO) LIKE :search)';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 
