@@ -13,6 +13,9 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TCarteraItemDTO>;
     function GetCarteraPorProveedor(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TCarteraProveedorDTO>;
+    // Tarjetas KPI de la pantalla: total pendiente, orden mas antigua sin
+    // pagar, proveedor con mayor deuda, cantidad de ordenes con saldo.
+    function GetCarteraResumen: TCarteraResumenDTO;
   end;
 
 procedure RegisterReportesServices(Container: IMVCServiceContainer);
@@ -37,6 +40,7 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TCarteraItemDTO>;
     function GetCarteraPorProveedor(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TCarteraProveedorDTO>;
+    function GetCarteraResumen: TCarteraResumenDTO;
   end;
 
 constructor TReportesService.Create(ARepository: IReportesRepository);
@@ -177,6 +181,26 @@ begin
   except
     Result.Free;
     raise;
+  end;
+end;
+
+function TReportesService.GetCarteraResumen: TCarteraResumenDTO;
+var
+  LRow: TCarteraResumenRow;
+begin
+  LRow := fRepository.GetCarteraResumen;
+  Result := TCarteraResumenDTO.Create;
+  Result.TotalPendiente := LRow.TotalPendiente;
+  Result.CantidadOrdenesConSaldo := LRow.CantidadOrdenesConSaldo;
+  if LRow.TieneOrdenMasAntigua then
+  begin
+    Result.OrdenMasAntiguaNumero := LRow.OrdenMasAntiguaNumero;
+    Result.OrdenMasAntiguaDias := LRow.OrdenMasAntiguaDias;
+  end;
+  if LRow.TieneProveedorMayorDeuda then
+  begin
+    Result.ProveedorMayorDeudaNombre := LRow.ProveedorMayorDeudaNombre;
+    Result.ProveedorMayorDeudaMonto := LRow.ProveedorMayorDeudaMonto;
   end;
 end;
 

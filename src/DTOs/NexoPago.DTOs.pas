@@ -639,6 +639,28 @@ type
 
   // Fila de GET /api/reportes/cartera/por-proveedor.
   [MVCNameCase(ncCamelCase)]
+  // Tarjetas KPI de Reportes de Cartera (3.10). Los campos "orden mas
+  // antigua"/"proveedor con mayor deuda" vienen nulos si no hay cartera
+  // pendiente (nunca 0/'' silencioso: el frontend distingue "sin datos" de
+  // "cero dias"/"proveedor vacio").
+  [MVCNameCase(ncCamelCase)]
+  TCarteraResumenDTO = class
+  private
+    fTotalPendiente: Currency;
+    fCantidadOrdenesConSaldo: Int64;
+    fOrdenMasAntiguaNumero: NullableString;
+    fOrdenMasAntiguaDias: NullableInt64;
+    fProveedorMayorDeudaNombre: NullableString;
+    fProveedorMayorDeudaMonto: NullableCurrency;
+  public
+    property TotalPendiente: Currency read fTotalPendiente write fTotalPendiente;
+    property CantidadOrdenesConSaldo: Int64 read fCantidadOrdenesConSaldo write fCantidadOrdenesConSaldo;
+    property OrdenMasAntiguaNumero: NullableString read fOrdenMasAntiguaNumero write fOrdenMasAntiguaNumero;
+    property OrdenMasAntiguaDias: NullableInt64 read fOrdenMasAntiguaDias write fOrdenMasAntiguaDias;
+    property ProveedorMayorDeudaNombre: NullableString read fProveedorMayorDeudaNombre write fProveedorMayorDeudaNombre;
+    property ProveedorMayorDeudaMonto: NullableCurrency read fProveedorMayorDeudaMonto write fProveedorMayorDeudaMonto;
+  end;
+
   TCarteraProveedorDTO = class
   private
     fProveedorID: Int64;
