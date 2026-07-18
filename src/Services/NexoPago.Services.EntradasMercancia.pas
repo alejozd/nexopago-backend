@@ -105,6 +105,7 @@ begin
       LDTO.ID := LRow.EntradaID;
       LDTO.NumeroEntradaHelisa := LRow.NumeroEntradaHelisa;
       LDTO.FechaEntrada := LRow.FechaEntrada;
+      LDTO.OrdenID := LRow.OrdenID;
       LDTO.NumeroOrden := LRow.NumeroOrden;
       LDTO.ProveedorNombre := LRow.ProveedorNombre;
       LDTO.UsuarioCreoNombre := LRow.UsuarioCreoNombre;

@@ -154,6 +154,8 @@ type
     Monto: Currency;
     TipoPago: String;
     Estado: String;
+    TieneObservaciones: Boolean;
+    Observaciones: String;
   end;
 
   TRecibosResumenRow = record
@@ -191,6 +193,7 @@ type
     EntradaID: Int64;
     NumeroEntradaHelisa: String;
     FechaEntrada: TDate;
+    OrdenID: Int64;
     NumeroOrden: String;
     ProveedorNombre: String;
     UsuarioCreoNombre: String;
@@ -580,7 +583,7 @@ begin
       LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
       LQuery.SQL.Text :=
         'SELECT FIRST :flimit SKIP :foffset ' +
-        '  R.RECIBO_ID, R.NUMERO_RECIBO, R.FECHA_RECIBO, R.MONTO, R.TIPO_PAGO, R.ESTADO, ' +
+        '  R.RECIBO_ID, R.NUMERO_RECIBO, R.FECHA_RECIBO, R.MONTO, R.TIPO_PAGO, R.ESTADO, R.OBSERVACIONES, ' +
         '  OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE ' +
         'FROM RECIBO_CAJA_CHIPIS R ' +
         'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = R.ORDEN_ID ' +
@@ -599,6 +602,9 @@ begin
         LRow.Monto := LQuery.FieldByName('MONTO').AsCurrency;
         LRow.TipoPago := LQuery.FieldByName('TIPO_PAGO').AsString;
         LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
+        LRow.TieneObservaciones := not LQuery.FieldByName('OBSERVACIONES').IsNull;
+        if LRow.TieneObservaciones then
+          LRow.Observaciones := LQuery.FieldByName('OBSERVACIONES').AsString;
         LRows.Add(LRow);
         LQuery.Next;
       end;
@@ -669,7 +675,7 @@ begin
       LQuery.SQL.Text :=
         'SELECT FIRST :flimit SKIP :foffset ' +
         '  E.ENTRADA_ID, E.NUMERO_ENTRADA_HELISA, E.FECHA_ENTRADA, E.FECHA_CREACION, E.OBSERVACIONES, ' +
-        '  OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE, ' +
+        '  OC.ORDEN_ID, OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE, ' +
         '  TRIM(U.NOMBRE || '' '' || COALESCE(U.APELLIDO, '''')) AS USUARIO_CREO_NOMBRE ' +
         'FROM ENTRADAS_MERCANCIA E ' +
         'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = E.ORDEN_ID ' +
@@ -684,6 +690,7 @@ begin
         LRow.EntradaID := LQuery.FieldByName('ENTRADA_ID').AsLargeInt;
         LRow.NumeroEntradaHelisa := LQuery.FieldByName('NUMERO_ENTRADA_HELISA').AsString;
         LRow.FechaEntrada := LQuery.FieldByName('FECHA_ENTRADA').AsDateTime;
+        LRow.OrdenID := LQuery.FieldByName('ORDEN_ID').AsLargeInt;
         LRow.NumeroOrden := LQuery.FieldByName('NUMERO_ORDEN').AsString;
         LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
         LRow.UsuarioCreoNombre := LQuery.FieldByName('USUARIO_CREO_NOMBRE').AsString;

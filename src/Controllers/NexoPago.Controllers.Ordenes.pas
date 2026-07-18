@@ -30,6 +30,15 @@ type
       const [MVCFromQueryString('sortField', '')] ASortField: String;
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
 
+    // Tarjetas KPI del listado: Pendientes, Recibidas, Anuladas.
+    // Debe declararse ANTES que GetOrdenByID: ambas son GET con un solo
+    // segmento tras /ordenes y DMVCFramework matchea por orden de
+    // declaracion, así que /ordenes/($id) capturaria "resumen" como id.
+    [MVCSwagSummary('Ordenes', 'Resumen de ordenes: pendientes, recibidas y anuladas')]
+    [MVCPath('/ordenes/resumen')]
+    [MVCHTTPMethod([httpGET])]
+    function GetResumen: TOrdenesResumenDTO;
+
     // Detalle completo: cabecera + lineas, cada una con su SUBTOTAL real
     // (COMPUTED BY en Firebird).
     [MVCSwagSummary('Ordenes', 'Detalle de una orden de compra (cabecera + lineas)')]
@@ -57,12 +66,6 @@ type
     [MVCHTTPMethod([httpPUT])]
     function AnularOrden(const id: Int64;
       const [MVCFromQueryString('motivo', '')] AMotivo: String): IMVCResponse;
-
-    // Tarjetas KPI del listado: Pendientes, Recibidas, Anuladas.
-    [MVCSwagSummary('Ordenes', 'Resumen de ordenes: pendientes, recibidas y anuladas')]
-    [MVCPath('/ordenes/resumen')]
-    [MVCHTTPMethod([httpGET])]
-    function GetResumen: TOrdenesResumenDTO;
   end;
 
 implementation
@@ -81,6 +84,11 @@ function TOrdenesController.GetOrdenes(const APage, ARows: Integer; const ASortF
   const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
 begin
   Result := fOrdenesService.GetPaged(APage, ARows, ASortField, ASortOrder);
+end;
+
+function TOrdenesController.GetResumen: TOrdenesResumenDTO;
+begin
+  Result := fOrdenesService.GetResumen;
 end;
 
 function TOrdenesController.GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
@@ -109,11 +117,6 @@ function TOrdenesController.AnularOrden(const id: Int64; const AMotivo: String):
 begin
   fOrdenesService.AnularOrden(id, AMotivo, GetCurrentUserID(Context));
   Result := OKResponse('Orden anulada correctamente');
-end;
-
-function TOrdenesController.GetResumen: TOrdenesResumenDTO;
-begin
-  Result := fOrdenesService.GetResumen;
 end;
 
 end.

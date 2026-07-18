@@ -300,6 +300,7 @@ type
     fMonto: Currency;
     fTipoPago: String;
     fEstado: String;
+    fObservaciones: NullableString;
   public
     property ID: Int64 read fID write fID;
     property NumeroRecibo: String read fNumeroRecibo write fNumeroRecibo;
@@ -309,6 +310,7 @@ type
     property Monto: Currency read fMonto write fMonto;
     property TipoPago: String read fTipoPago write fTipoPago;
     property Estado: String read fEstado write fEstado;
+    property Observaciones: NullableString read fObservaciones write fObservaciones;
   end;
 
   // Entrada de POST /api/recibos. tipoPago NO se recibe del cliente: lo
@@ -354,6 +356,7 @@ type
     fID: Int64;
     fNumeroEntradaHelisa: String;
     fFechaEntrada: TDate;
+    fOrdenID: Int64;
     fNumeroOrden: String;
     fProveedorNombre: String;
     fUsuarioCreoNombre: String;
@@ -363,6 +366,7 @@ type
     property ID: Int64 read fID write fID;
     property NumeroEntradaHelisa: String read fNumeroEntradaHelisa write fNumeroEntradaHelisa;
     property FechaEntrada: TDate read fFechaEntrada write fFechaEntrada;
+    property OrdenID: Int64 read fOrdenID write fOrdenID;
     property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
     property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
     property UsuarioCreoNombre: String read fUsuarioCreoNombre write fUsuarioCreoNombre;

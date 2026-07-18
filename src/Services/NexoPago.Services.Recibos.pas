@@ -117,6 +117,8 @@ begin
       LDTO.Monto := LRow.Monto;
       LDTO.TipoPago := LRow.TipoPago;
       LDTO.Estado := LRow.Estado;
+      if LRow.TieneObservaciones then
+        LDTO.Observaciones := LRow.Observaciones;
       Result.Data.Add(LDTO);
     end;
   except
