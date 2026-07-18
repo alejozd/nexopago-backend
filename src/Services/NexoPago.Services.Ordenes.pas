@@ -32,12 +32,14 @@ implementation
 uses
   System.SysUtils,
   System.Math,
+  System.Generics.Collections,
   MVCFramework.Commons,
   MVCFramework.ActiveRecord,
   FireDAC.Comp.Client,
   FireDAC.Stan.Param,
   NexoPago.Repository,
-  NexoPago.Entities;
+  NexoPago.Entities,
+  NexoPago.Helisa.Repository;
 
 type
   TOrdenesService = class(TInterfacedObject, IOrdenesService)
@@ -46,12 +48,24 @@ type
     fProveedorRepository: IProveedorRepository;
     fProductoRepository: IProductoRepository;
     fRecibosRepository: IRecibosRepository;
+    // Solo para leer PETRXXXX.CANTIDAD (cantidad pedida) al validar saldo:
+    // dependencia de Repository, no de Service, para no acoplar Services
+    // entre si (ver ValidarSaldoPedidoHelisa).
+    fHelisaPedidosRepository: IHelisaPedidosRepository;
     function BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
     procedure ValidarDatosCreacion(const ADatos: TOrdenCompraCreateDTO);
+    // Regla de Maribel: si una linea referencia una linea de un pedido de
+    // Helisa (ConsecutivoPedidoHelisa), no puede tomar mas cantidad de la que
+    // aun quede disponible en esa linea del pedido (pedida - ya consumida por
+    // otras ordenes activas). AOrdenIDExcluir: la orden que se esta editando,
+    // para no contar sus propias lineas viejas en contra de si misma (0 en
+    // creacion, donde la orden todavia no existe).
+    procedure ValidarSaldoPedidoHelisa(const ADatos: TOrdenCompraCreateDTO; const AOrdenIDExcluir: Int64);
     function SiguienteNumeroOrden: String;
   public
     constructor Create(AOrdenesRepository: IOrdenesRepository; AProveedorRepository: IProveedorRepository;
-      AProductoRepository: IProductoRepository; ARecibosRepository: IRecibosRepository);
+      AProductoRepository: IProductoRepository; ARecibosRepository: IRecibosRepository;
+      AHelisaPedidosRepository: IHelisaPedidosRepository);
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
@@ -63,13 +77,14 @@ type
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
   AProveedorRepository: IProveedorRepository; AProductoRepository: IProductoRepository;
-  ARecibosRepository: IRecibosRepository);
+  ARecibosRepository: IRecibosRepository; AHelisaPedidosRepository: IHelisaPedidosRepository);
 begin
   inherited Create;
   fOrdenesRepository := AOrdenesRepository;
   fProveedorRepository := AProveedorRepository;
   fProductoRepository := AProductoRepository;
   fRecibosRepository := ARecibosRepository;
+  fHelisaPedidosRepository := AHelisaPedidosRepository;
 end;
 
 function TOrdenesService.BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
@@ -177,6 +192,7 @@ begin
           LLineaDTO.Cantidad := LDetalle.Cantidad;
           LLineaDTO.PrecioUnitario := LDetalle.PrecioUnitario;
           LLineaDTO.Subtotal := LDetalle.Subtotal; // calculado por Firebird, nunca en Delphi
+          LLineaDTO.ConsecutivoPedidoHelisa := LDetalle.ConsecutivoPedidoHelisa;
           Result.ValorTotal := Result.ValorTotal + LDetalle.Subtotal;
           Result.Detalles.Add(LLineaDTO);
         end;
@@ -219,6 +235,103 @@ begin
   end;
 end;
 
+procedure TOrdenesService.ValidarSaldoPedidoHelisa(const ADatos: TOrdenCompraCreateDTO;
+  const AOrdenIDExcluir: Int64);
+var
+  LTieneLineaConPedido: Boolean;
+  LLinea: TOrdenCompraLineaCreateDTO;
+  LNumeroPedido: String;
+  LHelisaLineas: TArray<THelisaPedidoDetalleLineaRow>;
+  LHelisaLinea: THelisaPedidoDetalleLineaRow;
+  LConsumo: TArray<TConsumoPedidoLineaRow>;
+  LConsumoRow: TConsumoPedidoLineaRow;
+  LCantidadPedida, LCantidadConsumida, LSaldoDisponible: Currency;
+  LEncontradaEnPedido: Boolean;
+  // Si esta misma orden trae dos lineas con el mismo consecutivo (ej. el
+  // usuario selecciono la misma linea del pedido dos veces por error), cada
+  // una debe descontar del saldo lo que las lineas anteriores de ESTA MISMA
+  // solicitud ya reservaron - si no, dos lineas de 6 pasarian contra un saldo
+  // real de 10 porque cada una se compararia contra el saldo completo.
+  LTomadoEnEstaSolicitud: TDictionary<Integer, Currency>;
+  LTomadoPrevio: Currency;
+begin
+  // Si ninguna linea referencia un consecutivo de Helisa no hay nada que
+  // validar (orden sin pedido asociado, o lineas agregadas manualmente).
+  LTieneLineaConPedido := False;
+  for LLinea in ADatos.Detalles do
+    if LLinea.ConsecutivoPedidoHelisa.HasValue then
+    begin
+      LTieneLineaConPedido := True;
+      Break;
+    end;
+  if not LTieneLineaConPedido then
+    Exit;
+
+  LNumeroPedido := '';
+  if ADatos.NumeroPedidoHelisa.HasValue then
+    LNumeroPedido := Trim(ADatos.NumeroPedidoHelisa.Value);
+  if LNumeroPedido = '' then
+    raise EMVCException.Create(HTTP_STATUS.BadRequest,
+      'No se puede indicar consecutivoPedidoHelisa en una linea sin numeroPedidoHelisa en la cabecera de la orden');
+
+  try
+    LHelisaLineas := fHelisaPedidosRepository.ObtenerDetallePedido(LNumeroPedido);
+  except
+    on E: Exception do
+      raise EMVCException.Create(HTTP_STATUS.ServiceUnavailable,
+        'No fue posible consultar el pedido en Helisa para validar el saldo: ' + E.Message);
+  end;
+
+  // Una sola consulta para todo el pedido (no una por linea): el saldo ya
+  // tomado por otras ordenes activas, agrupado por consecutivo.
+  LConsumo := fOrdenesRepository.ObtenerConsumoPedidoHelisa(LNumeroPedido, AOrdenIDExcluir);
+
+  LTomadoEnEstaSolicitud := TDictionary<Integer, Currency>.Create;
+  try
+    for LLinea in ADatos.Detalles do
+    begin
+      if not LLinea.ConsecutivoPedidoHelisa.HasValue then
+        Continue;
+
+      LEncontradaEnPedido := False;
+      LCantidadPedida := 0;
+      for LHelisaLinea in LHelisaLineas do
+        if LHelisaLinea.Consecutivo = LLinea.ConsecutivoPedidoHelisa.Value then
+        begin
+          LCantidadPedida := LHelisaLinea.CantidadPedida;
+          LEncontradaEnPedido := True;
+          Break;
+        end;
+      if not LEncontradaEnPedido then
+        raise EMVCException.Create(HTTP_STATUS.BadRequest,
+          Format('El pedido Helisa %s no tiene ninguna linea con consecutivo %d (producto %d)',
+            [LNumeroPedido, LLinea.ConsecutivoPedidoHelisa.Value, LLinea.ProductoID]));
+
+      LCantidadConsumida := 0;
+      for LConsumoRow in LConsumo do
+        if LConsumoRow.ConsecutivoPedidoHelisa = LLinea.ConsecutivoPedidoHelisa.Value then
+        begin
+          LCantidadConsumida := LConsumoRow.CantidadConsumida;
+          Break;
+        end;
+
+      if not LTomadoEnEstaSolicitud.TryGetValue(LLinea.ConsecutivoPedidoHelisa.Value, LTomadoPrevio) then
+        LTomadoPrevio := 0;
+
+      LSaldoDisponible := LCantidadPedida - LCantidadConsumida - LTomadoPrevio;
+      if LLinea.Cantidad > LSaldoDisponible then
+        raise EMVCException.Create(HTTP_STATUS.BadRequest,
+          Format('Pedido Helisa %s, linea %d (producto %d): saldo disponible %.4f, solicitado %.4f',
+            [LNumeroPedido, LLinea.ConsecutivoPedidoHelisa.Value, LLinea.ProductoID,
+            LSaldoDisponible, LLinea.Cantidad]));
+
+      LTomadoEnEstaSolicitud.AddOrSetValue(LLinea.ConsecutivoPedidoHelisa.Value, LTomadoPrevio + LLinea.Cantidad);
+    end;
+  finally
+    LTomadoEnEstaSolicitud.Free;
+  end;
+end;
+
 function TOrdenesService.SiguienteNumeroOrden: String;
 var
   LQuery: TFDQuery;
@@ -243,6 +356,7 @@ var
   LDetalle: TOrdenCompraDetalle;
 begin
   ValidarDatosCreacion(ADatos);
+  ValidarSaldoPedidoHelisa(ADatos, 0); // orden nueva: aun no hay ORDEN_ID propio que excluir
 
   LConn := TMVCActiveRecord.CurrentConnection;
   LConn.StartTransaction;
@@ -272,6 +386,7 @@ begin
           LDetalle.ProductoID := LLineaInput.ProductoID;
           LDetalle.Cantidad := LLineaInput.Cantidad;
           LDetalle.PrecioUnitario := LLineaInput.PrecioUnitario;
+          LDetalle.ConsecutivoPedidoHelisa := LLineaInput.ConsecutivoPedidoHelisa;
           LDetalle.EstadoRegistro := 'A';
           if AUsuarioID > 0 then
             LDetalle.UsuarioCreoID := AUsuarioID;
@@ -300,6 +415,7 @@ var
   LDetalle: TOrdenCompraDetalle;
 begin
   ValidarDatosCreacion(ADatos);
+  ValidarSaldoPedidoHelisa(ADatos, AOrdenID); // excluye las propias lineas viejas de esta orden
 
   LConn := TMVCActiveRecord.CurrentConnection;
   LConn.StartTransaction;
@@ -344,6 +460,7 @@ begin
           LDetalle.ProductoID := LLineaInput.ProductoID;
           LDetalle.Cantidad := LLineaInput.Cantidad;
           LDetalle.PrecioUnitario := LLineaInput.PrecioUnitario;
+          LDetalle.ConsecutivoPedidoHelisa := LLineaInput.ConsecutivoPedidoHelisa;
           LDetalle.EstadoRegistro := 'A';
           if AUsuarioID > 0 then
             LDetalle.UsuarioCreoID := AUsuarioID;

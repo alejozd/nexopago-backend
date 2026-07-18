@@ -25,6 +25,10 @@ type
     SubCodigo: String;
     Descripcion: String;
     Referencia: String;
+    // Cantidad pedida de esa linea en Helisa (PETRXXXX.CANTIDAD, confirmado
+    // con el usuario). Base para calcular el saldo disponible contra ordenes
+    // ya creadas (ver IOrdenesRepository.ObtenerConsumoPedidoHelisa).
+    CantidadPedida: Currency;
   end;
 
   IHelisaPedidosRepository = interface
@@ -106,7 +110,7 @@ begin
       try
         LQuery.Connection := LConn;
         LQuery.SQL.Text :=
-          'SELECT TR.CONSECUTIVO, TR.CODIGO_CONCEPTO, TR.SUBCODIGO, TR.TEXTO, I.REFERENCIA, I.NOMBRE ' +
+          'SELECT TR.CONSECUTIVO, TR.CODIGO_CONCEPTO, TR.SUBCODIGO, TR.TEXTO, TR.CANTIDAD, I.REFERENCIA, I.NOMBRE ' +
           'FROM PEMAXXXX P ' +
           'INNER JOIN PETRXXXX TR ON P.DOCUMENTO = TR.DOCUMENTO ' +
           'INNER JOIN INMAXXXX I ON TR.CODIGO_CONCEPTO = I.CODIGO AND TR.SUBCODIGO = I.SUBCODIGO ' +
@@ -127,6 +131,7 @@ begin
           else
             LRow.Descripcion := Trim(LQuery.FieldByName('NOMBRE').AsString);
           LRow.Referencia := Trim(LQuery.FieldByName('REFERENCIA').AsString);
+          LRow.CantidadPedida := LQuery.FieldByName('CANTIDAD').AsCurrency;
           LRows.Add(LRow);
           LQuery.Next;
         end;

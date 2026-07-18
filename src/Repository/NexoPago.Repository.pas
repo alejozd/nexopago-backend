@@ -129,18 +129,35 @@ type
     Anuladas: Int64;
   end;
 
+  // Suma de CANTIDAD (ORDEN_COMPRA_DETALLE) ya consumida de un pedido de
+  // Helisa, agrupada por CONSECUTIVO_PEDIDO_HELISA. Base para calcular el
+  // saldo disponible de cada linea del pedido antes de crear/editar una
+  // orden (ver NexoPago.Services.Ordenes.TOrdenesService).
+  TConsumoPedidoLineaRow = record
+    ConsecutivoPedidoHelisa: Integer;
+    CantidadConsumida: Currency;
+  end;
+
   IOrdenesRepository = interface(IMVCRepository<TOrdenCompra>)
     ['{9CEDA904-AF62-4709-89EC-EE2A5995E9D7}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
     // (whitelist), nunca texto crudo del cliente.
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
     function GetResumen: TOrdenesResumenRow;
+    // AOrdenIDExcluir permite editar una orden existente sin que sus propias
+    // lineas cuenten en contra de si misma (0 = no excluir ninguna, valido
+    // porque ORDEN_ID siempre es > 0). Solo cuenta ordenes no ANULADAS: una
+    // orden anulada libera el saldo que habia tomado (regla confirmada).
+    function ObtenerConsumoPedidoHelisa(const ANumeroPedidoHelisa: String;
+      const AOrdenIDExcluir: Int64 = 0): TArray<TConsumoPedidoLineaRow>;
   end;
 
   TOrdenesRepository = class(TMVCRepository<TOrdenCompra>, IOrdenesRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
     function GetResumen: TOrdenesResumenRow;
+    function ObtenerConsumoPedidoHelisa(const ANumeroPedidoHelisa: String;
+      const AOrdenIDExcluir: Int64 = 0): TArray<TConsumoPedidoLineaRow>;
   end;
 
   // Fila plana para el listado paginado de recibos: cabecera + numero de
@@ -479,6 +496,46 @@ begin
     Result.Anuladas := LQuery.FieldByName('ANULADAS').AsLargeInt;
   finally
     LQuery.Free;
+  end;
+end;
+
+function TOrdenesRepository.ObtenerConsumoPedidoHelisa(const ANumeroPedidoHelisa: String;
+  const AOrdenIDExcluir: Int64): TArray<TConsumoPedidoLineaRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TConsumoPedidoLineaRow>;
+  LRow: TConsumoPedidoLineaRow;
+begin
+  LRows := TList<TConsumoPedidoLineaRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
+      LQuery.SQL.Text :=
+        'SELECT D.CONSECUTIVO_PEDIDO_HELISA, SUM(D.CANTIDAD) AS CANTIDAD_CONSUMIDA ' +
+        'FROM ORDEN_COMPRA_DETALLE D ' +
+        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = D.ORDEN_ID ' +
+        'WHERE OC.NUMERO_PEDIDO_HELISA = :numeroPedido ' +
+        '  AND OC.ESTADO <> ''ANULADA'' ' +
+        '  AND OC.ORDEN_ID <> :ordenIdExcluir ' +
+        '  AND D.CONSECUTIVO_PEDIDO_HELISA IS NOT NULL ' +
+        'GROUP BY D.CONSECUTIVO_PEDIDO_HELISA';
+      LQuery.ParamByName('numeroPedido').AsString := ANumeroPedidoHelisa;
+      LQuery.ParamByName('ordenIdExcluir').AsLargeInt := AOrdenIDExcluir;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.ConsecutivoPedidoHelisa := LQuery.FieldByName('CONSECUTIVO_PEDIDO_HELISA').AsInteger;
+        LRow.CantidadConsumida := LQuery.FieldByName('CANTIDAD_CONSUMIDA').AsCurrency;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
   end;
 end;
 

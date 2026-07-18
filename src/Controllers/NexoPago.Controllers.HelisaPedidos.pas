@@ -30,10 +30,14 @@ type
     // numero va por querystring (no como segmento de ruta): DOCUMENTO en
     // Helisa suele traer espacios internos (ej. "JN  00001604"), poco fiables
     // como segmento de path aunque se URL-encoden.
+    // ordenId (opcional): al editar una orden existente desde el formulario,
+    // permite que sus propias lineas no cuenten como "consumo" del saldo
+    // contra si misma (ver IOrdenesRepository.ObtenerConsumoPedidoHelisa).
     [MVCSwagSummary('HelisaPedidos', 'Detalle de productos de un pedido de Helisa')]
     [MVCPath('/helisa/pedidos/detalle')]
     [MVCHTTPMethod([httpGET])]
-    function GetDetallePedido(const [MVCFromQueryString('numero', '')] numero: String): THelisaPedidoDetalleDTO;
+    function GetDetallePedido(const [MVCFromQueryString('numero', '')] numero: String;
+      const [MVCFromQueryString('ordenId', 0)] ordenId: Int64): THelisaPedidoDetalleDTO;
   end;
 
 implementation
@@ -53,9 +57,9 @@ begin
     Result.Add(LPedido);
 end;
 
-function THelisaPedidosController.GetDetallePedido(const numero: String): THelisaPedidoDetalleDTO;
+function THelisaPedidosController.GetDetallePedido(const numero: String; const ordenId: Int64): THelisaPedidoDetalleDTO;
 begin
-  Result := fHelisaPedidosService.ObtenerDetallePedido(numero);
+  Result := fHelisaPedidosService.ObtenerDetallePedido(numero, ordenId);
 end;
 
 end.

@@ -201,6 +201,7 @@ type
     fCantidad: Currency;
     fPrecioUnitario: Currency;
     fSubtotal: Currency;
+    fConsecutivoPedidoHelisa: NullableInt32;
   public
     property ID: Int64 read fID write fID;
     property ProductoID: Int64 read fProductoID write fProductoID;
@@ -208,6 +209,9 @@ type
     property Cantidad: Currency read fCantidad write fCantidad;
     property PrecioUnitario: Currency read fPrecioUnitario write fPrecioUnitario;
     property Subtotal: Currency read fSubtotal write fSubtotal;
+    // Consecutivo de PETRXXXX del que salio esta linea (nullable: ordenes que
+    // no vienen de un pedido de Helisa, o creadas antes de esta funcionalidad).
+    property ConsecutivoPedidoHelisa: NullableInt32 read fConsecutivoPedidoHelisa write fConsecutivoPedidoHelisa;
   end;
 
   // Respuesta de GET /api/ordenes/(id): cabecera + lineas completas.
@@ -258,10 +262,16 @@ type
     fProductoID: Int64;
     fCantidad: Currency;
     fPrecioUnitario: Currency;
+    fConsecutivoPedidoHelisa: NullableInt32;
   public
     property ProductoID: Int64 read fProductoID write fProductoID;
     property Cantidad: Currency read fCantidad write fCantidad;
     property PrecioUnitario: Currency read fPrecioUnitario write fPrecioUnitario;
+    // Si viene informado, identifica de que linea del pedido de Helisa
+    // (ORDEN_COMPRA.NUMERO_PEDIDO_HELISA en la cabecera) sale esta cantidad,
+    // para descontarla del saldo disponible de esa linea (ver
+    // TOrdenesService.ValidarSaldoPedidoHelisa).
+    property ConsecutivoPedidoHelisa: NullableInt32 read fConsecutivoPedidoHelisa write fConsecutivoPedidoHelisa;
   end;
 
   // Entrada de POST /api/ordenes: cabecera + lineas.
@@ -701,12 +711,25 @@ type
     fSubCodigo: String;
     fDescripcion: String;
     fReferencia: String;
+    fCantidadPedida: Currency;
+    fCantidadConsumida: Currency;
+    fSaldoDisponible: Currency;
   public
     property Consecutivo: Integer read fConsecutivo write fConsecutivo;
     property CodigoConcepto: String read fCodigoConcepto write fCodigoConcepto;
     property SubCodigo: String read fSubCodigo write fSubCodigo;
     property Descripcion: String read fDescripcion write fDescripcion;
     property Referencia: String read fReferencia write fReferencia;
+    // Cantidad de esta linea en el pedido Helisa (PETRXXXX.CANTIDAD).
+    property CantidadPedida: Currency read fCantidadPedida write fCantidadPedida;
+    // Suma ya tomada por otras ordenes activas (no ANULADA) contra este mismo
+    // consecutivo. NOTA: esto es saldo de CANTIDAD de producto, no de plata -
+    // no confundir con TCarteraResumenDTO/TCarteraItemDTO (saldo pendiente de
+    // pago), un concepto totalmente distinto.
+    property CantidadConsumida: Currency read fCantidadConsumida write fCantidadConsumida;
+    // CantidadPedida - CantidadConsumida: lo que queda disponible para una
+    // orden nueva (o para esta misma si se esta editando, ver AOrdenIDExcluir).
+    property SaldoDisponible: Currency read fSaldoDisponible write fSaldoDisponible;
   end;
 
   [MVCNameCase(ncCamelCase)]

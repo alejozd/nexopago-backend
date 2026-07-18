@@ -179,6 +179,12 @@ type
     // (el POST no devuelve el detalle), asi que basta con foReadOnly.
     [MVCTableField('SUBTOTAL', [foReadOnly])]
     fSubtotal: Currency;
+    // Consecutivo de PETRXXXX (linea del pedido de Helisa) del que salio esta
+    // cantidad. Nullable: lineas de una orden que no viene de un pedido de
+    // Helisa (o creadas antes de esta funcionalidad) no lo tienen. El numero
+    // de pedido en si vive en ORDEN_COMPRA.NUMERO_PEDIDO_HELISA (cabecera).
+    [MVCTableField('CONSECUTIVO_PEDIDO_HELISA')]
+    fConsecutivoPedidoHelisa: NullableInt32;
     [MVCTableField('USUARIO_CREO_ID')]
     fUsuarioCreoID: NullableInt64;
     [MVCTableField('FECHA_CREACION', [foReadOnly])]
@@ -196,6 +202,7 @@ type
     property Cantidad: Currency read fCantidad write fCantidad;
     property PrecioUnitario: Currency read fPrecioUnitario write fPrecioUnitario;
     property Subtotal: Currency read fSubtotal;
+    property ConsecutivoPedidoHelisa: NullableInt32 read fConsecutivoPedidoHelisa write fConsecutivoPedidoHelisa;
     property UsuarioCreoID: NullableInt64 read fUsuarioCreoID write fUsuarioCreoID;
     property FechaCreacion: TDateTime read fFechaCreacion;
     property UsuarioModificoID: NullableInt64 read fUsuarioModificoID write fUsuarioModificoID;
