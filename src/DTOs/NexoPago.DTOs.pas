@@ -726,6 +726,20 @@ type
     property Fecha: String read fFecha write fFecha;
   end;
 
+  // Empresa Helisa a la que esta conectado NexoPago (HConfig.Config.Empresa),
+  // resuelta contra DIRECTOR en la base maestra HHelisaBD.HGW. Se muestra en
+  // el Topbar para que quede claro a cual de las hasta 100 empresas posibles
+  // en Helisa se esta apuntando.
+  [MVCNameCase(ncCamelCase)]
+  TEmpresaDTO = class
+  private
+    fCodigo: Integer;
+    fNombre: String;
+  public
+    property Codigo: Integer read fCodigo write fCodigo;
+    property Nombre: String read fNombre write fNombre;
+  end;
+
   // Linea del detalle de un pedido Helisa (join PEMAXXXX+PETRXXXX+INMAXXXX).
   [MVCNameCase(ncCamelCase)]
   THelisaPedidoDetalleLineaDTO = class
