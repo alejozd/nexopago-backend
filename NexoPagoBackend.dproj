@@ -118,6 +118,7 @@
         <DCCReference Include="src\Helisa\NexoPago.Helisa.Connection.pas"/>
         <DCCReference Include="src\Helisa\NexoPago.Helisa.Utils.pas"/>
         <DCCReference Include="src\Helisa\NexoPago.Helisa.Repository.pas"/>
+        <DCCReference Include="src\Helisa\NexoPago.Helisa.Empresa.Repository.pas"/>
         <DCCReference Include="src\Services\NexoPago.Services.Auth.pas"/>
         <DCCReference Include="src\Services\NexoPago.Services.Recibos.pas"/>
         <DCCReference Include="src\Services\NexoPago.Services.Ordenes.pas"/>
@@ -127,6 +128,7 @@
         <DCCReference Include="src\Services\NexoPago.Services.Dashboard.pas"/>
         <DCCReference Include="src\Services\NexoPago.Services.Reportes.pas"/>
         <DCCReference Include="src\Services\NexoPago.Services.HelisaPedidos.pas"/>
+        <DCCReference Include="src\Services\NexoPago.Services.Empresa.pas"/>
         <DCCReference Include="src\Services\NexoPago.Services.pas"/>
         <DCCReference Include="src\NexoPago.WebModule.pas">
             <Form>NexoPagoWebModule</Form>
@@ -145,6 +147,7 @@
         <DCCReference Include="src\Controllers\NexoPago.Controllers.Dashboard.pas"/>
         <DCCReference Include="src\Controllers\NexoPago.Controllers.Reportes.pas"/>
         <DCCReference Include="src\Controllers\NexoPago.Controllers.HelisaPedidos.pas"/>
+        <DCCReference Include="src\Controllers\NexoPago.Controllers.Empresa.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

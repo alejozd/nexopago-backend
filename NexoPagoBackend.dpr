@@ -22,6 +22,7 @@ uses
   NexoPago.Helisa.Connection in 'src\Helisa\NexoPago.Helisa.Connection.pas',
   NexoPago.Helisa.Utils in 'src\Helisa\NexoPago.Helisa.Utils.pas',
   NexoPago.Helisa.Repository in 'src\Helisa\NexoPago.Helisa.Repository.pas',
+  NexoPago.Helisa.Empresa.Repository in 'src\Helisa\NexoPago.Helisa.Empresa.Repository.pas',
   NexoPago.Services in 'src\Services\NexoPago.Services.pas',
   NexoPago.Services.Auth in 'src\Services\NexoPago.Services.Auth.pas',
   NexoPago.Services.Recibos in 'src\Services\NexoPago.Services.Recibos.pas',
@@ -32,6 +33,7 @@ uses
   NexoPago.Services.Dashboard in 'src\Services\NexoPago.Services.Dashboard.pas',
   NexoPago.Services.Reportes in 'src\Services\NexoPago.Services.Reportes.pas',
   NexoPago.Services.HelisaPedidos in 'src\Services\NexoPago.Services.HelisaPedidos.pas',
+  NexoPago.Services.Empresa in 'src\Services\NexoPago.Services.Empresa.pas',
   NexoPago.WebModule in 'src\NexoPago.WebModule.pas' {NexoPagoWebModule: TWebModule},
   NexoPago.Controllers.Ordenes in 'src\Controllers\NexoPago.Controllers.Ordenes.pas',
   NexoPago.Controllers.Health in 'src\Controllers\NexoPago.Controllers.Health.pas',
@@ -44,7 +46,8 @@ uses
   NexoPago.Controllers.Permisos in 'src\Controllers\NexoPago.Controllers.Permisos.pas',
   NexoPago.Controllers.Dashboard in 'src\Controllers\NexoPago.Controllers.Dashboard.pas',
   NexoPago.Controllers.Reportes in 'src\Controllers\NexoPago.Controllers.Reportes.pas',
-  NexoPago.Controllers.HelisaPedidos in 'src\Controllers\NexoPago.Controllers.HelisaPedidos.pas';
+  NexoPago.Controllers.HelisaPedidos in 'src\Controllers\NexoPago.Controllers.HelisaPedidos.pas',
+  NexoPago.Controllers.Empresa in 'src\Controllers\NexoPago.Controllers.Empresa.pas';
 
 {$R *.res}
 
