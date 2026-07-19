@@ -292,6 +292,11 @@ type
     Cantidad: Int64;
   end;
 
+  TEntradaPorSemanaRow = record
+    SemanaInicio: TDate;
+    Cantidad: Int64;
+  end;
+
   // Datos agregados de GET /api/dashboard. Toca ORDEN_COMPRA,
   // ORDEN_COMPRA_DETALLE y RECIBO_CAJA_CHIPIS a la vez -no una sola entidad-
   // asi que no extiende IMVCRepository<T> como los demas: interfaz propia,
@@ -303,6 +308,7 @@ type
     procedure GetCarteraResumen(out APagosPendientes: Int64; out AValorTotalCartera: Currency);
     function GetPagosMensuales(const AFechaInicio: TDate): TArray<TPagoMensualRow>;
     function GetOrdenesPorEstado: TArray<TOrdenEstadoRow>;
+    function GetEntradasPorSemana(const AFechaInicio: TDate): TArray<TEntradaPorSemanaRow>;
   end;
 
   TDashboardRepository = class(TInterfacedObject, IDashboardRepository)
@@ -312,6 +318,7 @@ type
     procedure GetCarteraResumen(out APagosPendientes: Int64; out AValorTotalCartera: Currency);
     function GetPagosMensuales(const AFechaInicio: TDate): TArray<TPagoMensualRow>;
     function GetOrdenesPorEstado: TArray<TOrdenEstadoRow>;
+    function GetEntradasPorSemana(const AFechaInicio: TDate): TArray<TEntradaPorSemanaRow>;
   end;
 
   TCarteraListRow = record
@@ -1116,6 +1123,44 @@ begin
       while not LQuery.Eof do
       begin
         LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
+        LRow.Cantidad := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TDashboardRepository.GetEntradasPorSemana(const AFechaInicio: TDate): TArray<TEntradaPorSemanaRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TEntradaPorSemanaRow>;
+  LRow: TEntradaPorSemanaRow;
+begin
+  LRows := TList<TEntradaPorSemanaRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := TMVCActiveRecord.CurrentConnection;
+      // EXTRACT(WEEKDAY ...) en Firebird da 0=domingo..6=sabado; restarlo a
+      // la fecha da el domingo de esa semana, usado como llave de la semana.
+      LQuery.SQL.Text :=
+        'SELECT CAST(FECHA_CREACION AS DATE) - EXTRACT(WEEKDAY FROM FECHA_CREACION) AS SEMANA_INICIO, ' +
+        '  COUNT(*) AS CANTIDAD ' +
+        'FROM ENTRADAS_MERCANCIA ' +
+        'WHERE FECHA_CREACION >= :fechaInicio ' +
+        'GROUP BY 1 ' +
+        'ORDER BY 1';
+      LQuery.ParamByName('fechaInicio').AsDate := AFechaInicio;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.SemanaInicio := LQuery.FieldByName('SEMANA_INICIO').AsDateTime;
         LRow.Cantidad := LQuery.FieldByName('CANTIDAD').AsLargeInt;
         LRows.Add(LRow);
         LQuery.Next;
