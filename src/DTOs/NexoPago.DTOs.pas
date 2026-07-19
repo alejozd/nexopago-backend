@@ -599,6 +599,35 @@ type
     property Cantidad: Int64 read fCantidad write fCantidad;
   end;
 
+  // Fila de GET /api/reportes/cartera/por-proveedor; se declara antes de
+  // TDashboardDTO porque este ultimo la usa como TObjectList<TCarteraProveedorDTO>
+  // (Delphi exige el tipo completo, no solo forward, para parametros de generic).
+  [MVCNameCase(ncCamelCase)]
+  TCarteraProveedorDTO = class
+  private
+    fProveedorID: Int64;
+    fProveedorNombre: String;
+    fCantidadOrdenes: Int64;
+    fSaldoPendienteTotal: Currency;
+  public
+    property ProveedorID: Int64 read fProveedorID write fProveedorID;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property CantidadOrdenes: Int64 read fCantidadOrdenes write fCantidadOrdenes;
+    property SaldoPendienteTotal: Currency read fSaldoPendienteTotal write fSaldoPendienteTotal;
+  end;
+
+  [MVCNameCase(ncCamelCase)]
+  TEntradaPorSemanaDTO = class
+  private
+    fSemanaInicio: String;
+    fCantidad: Int64;
+  public
+    // Formato ISO 'YYYY-MM-DD' del domingo de esa semana: mismo criterio que
+    // TPagoMensualDTO.Periodo, el frontend decide como formatear para mostrar.
+    property SemanaInicio: String read fSemanaInicio write fSemanaInicio;
+    property Cantidad: Int64 read fCantidad write fCantidad;
+  end;
+
   // Respuesta de GET /api/dashboard (3.3): 4 KPIs + datos de los 2 graficos.
   // La tabla "ultimos recibos" no esta aqui: se resuelve reutilizando
   // GET /api/recibos?rows=5&sortField=fechaRecibo&sortOrder=-1.
@@ -611,6 +640,8 @@ type
     fValorTotalCartera: Currency;
     fPagosMensuales: TObjectList<TPagoMensualDTO>;
     fOrdenesPorEstado: TObjectList<TOrdenEstadoCountDTO>;
+    fTopProveedoresCartera: TObjectList<TCarteraProveedorDTO>;
+    fEntradasRecientes: TObjectList<TEntradaPorSemanaDTO>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -622,6 +653,14 @@ type
     property PagosMensuales: TObjectList<TPagoMensualDTO> read fPagosMensuales;
     [MVCListOf(TOrdenEstadoCountDTO)]
     property OrdenesPorEstado: TObjectList<TOrdenEstadoCountDTO> read fOrdenesPorEstado;
+    // Top 5 proveedores con mayor saldo pendiente (mismo query que Reportes
+    // de Cartera por Proveedor, solo limitado y ordenado por saldo desc).
+    [MVCListOf(TCarteraProveedorDTO)]
+    property TopProveedoresCartera: TObjectList<TCarteraProveedorDTO> read fTopProveedoresCartera;
+    // Tendencia de entradas de mercancia de las ultimas semanas (una por
+    // semana, incluyendo semanas en 0 para que el eje X sea continuo).
+    [MVCListOf(TEntradaPorSemanaDTO)]
+    property EntradasRecientes: TObjectList<TEntradaPorSemanaDTO> read fEntradasRecientes;
   end;
 
   // Fila de GET /api/reportes/cartera. diasAntiguedad/rangoAntiguedad se
@@ -651,8 +690,6 @@ type
     property RangoAntiguedad: String read fRangoAntiguedad write fRangoAntiguedad;
   end;
 
-  // Fila de GET /api/reportes/cartera/por-proveedor.
-  [MVCNameCase(ncCamelCase)]
   // Tarjetas KPI de Reportes de Cartera (3.10). Los campos "orden mas
   // antigua"/"proveedor con mayor deuda" vienen nulos si no hay cartera
   // pendiente (nunca 0/'' silencioso: el frontend distingue "sin datos" de
@@ -673,19 +710,6 @@ type
     property OrdenMasAntiguaDias: NullableInt64 read fOrdenMasAntiguaDias write fOrdenMasAntiguaDias;
     property ProveedorMayorDeudaNombre: NullableString read fProveedorMayorDeudaNombre write fProveedorMayorDeudaNombre;
     property ProveedorMayorDeudaMonto: NullableCurrency read fProveedorMayorDeudaMonto write fProveedorMayorDeudaMonto;
-  end;
-
-  TCarteraProveedorDTO = class
-  private
-    fProveedorID: Int64;
-    fProveedorNombre: String;
-    fCantidadOrdenes: Int64;
-    fSaldoPendienteTotal: Currency;
-  public
-    property ProveedorID: Int64 read fProveedorID write fProveedorID;
-    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
-    property CantidadOrdenes: Int64 read fCantidadOrdenes write fCantidadOrdenes;
-    property SaldoPendienteTotal: Currency read fSaldoPendienteTotal write fSaldoPendienteTotal;
   end;
 
   // Fila del listado de pedidos recientes de Helisa (PEMAXXXX), para el
@@ -801,12 +825,16 @@ begin
   inherited Create;
   fPagosMensuales := TObjectList<TPagoMensualDTO>.Create(True);
   fOrdenesPorEstado := TObjectList<TOrdenEstadoCountDTO>.Create(True);
+  fTopProveedoresCartera := TObjectList<TCarteraProveedorDTO>.Create(True);
+  fEntradasRecientes := TObjectList<TEntradaPorSemanaDTO>.Create(True);
 end;
 
 destructor TDashboardDTO.Destroy;
 begin
   fPagosMensuales.Free;
   fOrdenesPorEstado.Free;
+  fTopProveedoresCartera.Free;
+  fEntradasRecientes.Free;
   inherited;
 end;
 
