@@ -22,6 +22,9 @@ type
     // Reemplaza el conjunto completo de permisos del perfil, en una
     // transaccion FireDAC explicita.
     procedure AsignarPermisos(const APerfilID: Int64; const ADatos: TAsignarPermisosDTO);
+    // Mecanismo reutilizable de verificacion de permisos, punto de entrada
+    // para servicios de otros modulos (hoy: TEmpresaService.CambiarEmpresaActiva).
+    function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
   end;
 
 procedure RegisterPermisosServices(Container: IMVCServiceContainer);
@@ -59,6 +62,7 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TPermisoDTO>;
     function GetMatriz(const APerfilID: Int64): TObjectList<TPermisoMatrizItemDTO>;
     procedure AsignarPermisos(const APerfilID: Int64; const ADatos: TAsignarPermisosDTO);
+    function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
   end;
 
 constructor TPermisosService.Create(AModuloRepository: IModuloRepository; APerfilRepository: IPerfilRepository;
@@ -268,6 +272,11 @@ begin
     LConn.Rollback;
     raise;
   end;
+end;
+
+function TPermisosService.UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
+begin
+  Result := fPermisoRepository.UsuarioTienePermiso(AUsuarioID, AModuloNombre, AAccion);
 end;
 
 procedure RegisterPermisosServices(Container: IMVCServiceContainer);

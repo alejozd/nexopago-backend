@@ -274,11 +274,52 @@ type
   IPermisoRepository = interface(IMVCRepository<TPermiso>)
     ['{64923C9F-57E0-4824-886A-34CBCC9005A4}']
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TPermisoListRow>;
+    // Mecanismo reutilizable de verificacion de permisos (EXISTS via join
+    // PERFIL_PERMISO -> USUARIO_PERFIL -> PERMISO -> MODULO). Usado hoy solo
+    // por TEmpresaService.CambiarEmpresaActiva; OnAuthorization sigue siendo
+    // un stub (fuera de alcance, ver NexoPago.Services.Auth).
+    function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
   end;
 
   TPermisoRepository = class(TMVCRepository<TPermiso>, IPermisoRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TPermisoListRow>;
+    function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
+  end;
+
+  // Fila plana de EMPRESA_ACTIVA_HISTORIAL: cambio + nombre de quien lo hizo,
+  // resueltos en una sola consulta SQL (join con USUARIO).
+  TEmpresaActivaHistorialRow = record
+    UsuarioNombre: String;
+    FechaCambio: TDateTime;
+    TieneCodigoAnterior: Boolean;
+    CodigoAnterior: Integer;
+    NombreAnterior: String;
+    CodigoNuevo: Integer;
+    NombreNuevo: String;
+  end;
+
+  // Fila unica (SINGLETON_LOCK) de la empresa Helisa activa configurada en
+  // NexoPago. GetUnico devuelve nil si la tabla aun esta vacia (instalacion
+  // nueva, ver TEmpresaService.ObtenerConfiguracion).
+  IEmpresaActivaRepository = interface(IMVCRepository<TEmpresaActiva>)
+    ['{3E9B7C4A-6D5F-4A8E-9C2B-1F5A8D3E6B72}']
+    function GetUnico: TEmpresaActiva;
+  end;
+
+  TEmpresaActivaRepository = class(TMVCRepository<TEmpresaActiva>, IEmpresaActivaRepository)
+  public
+    function GetUnico: TEmpresaActiva;
+  end;
+
+  IEmpresaActivaHistorialRepository = interface(IMVCRepository<TEmpresaActivaHistorial>)
+    ['{7A2F5D8C-4B1E-4F9A-8D6C-2E7B4A9F1C35}']
+    function GetRecientes(const ATop: Integer): TArray<TEmpresaActivaHistorialRow>;
+  end;
+
+  TEmpresaActivaHistorialRepository = class(TMVCRepository<TEmpresaActivaHistorial>, IEmpresaActivaHistorialRepository)
+  public
+    function GetRecientes(const ATop: Integer): TArray<TEmpresaActivaHistorialRow>;
   end;
 
   TPagoMensualRow = record
@@ -997,6 +1038,83 @@ begin
         LRow.ModuloNombre := LQuery.FieldByName('MODULO_NOMBRE').AsString;
         LRow.Accion := LQuery.FieldByName('ACCION').AsString;
         LRow.Descripcion := LQuery.FieldByName('DESCRIPCION').AsString;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TPermisoRepository.UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
+    LQuery.SQL.Text :=
+      'SELECT FIRST 1 1 ' +
+      'FROM PERFIL_PERMISO PP ' +
+      'JOIN USUARIO_PERFIL UP ON UP.PERFIL_ID = PP.PERFIL_ID ' +
+      'JOIN PERMISO P ON P.PERMISO_ID = PP.PERMISO_ID ' +
+      'JOIN MODULO M ON M.MODULO_ID = P.MODULO_ID ' +
+      'WHERE UP.USUARIO_ID = :usuarioId AND M.NOMBRE = :modulo AND P.ACCION = :accion';
+    LQuery.ParamByName('usuarioId').AsLargeInt := AUsuarioID;
+    LQuery.ParamByName('modulo').AsString := AModuloNombre;
+    LQuery.ParamByName('accion').AsString := AAccion;
+    LQuery.Open;
+    Result := not LQuery.IsEmpty;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TEmpresaActivaRepository.GetUnico: TEmpresaActiva;
+begin
+  // La tabla nunca tiene mas de una fila (UNIQUE + CHECK sobre
+  // SINGLETON_LOCK a nivel de BD), asi que basta con traer la primera:
+  // nil aqui significa "instalacion nueva, aun sin configurar".
+  Result := GetFirstByWhere('1=1', [], False);
+end;
+
+function TEmpresaActivaHistorialRepository.GetRecientes(const ATop: Integer): TArray<TEmpresaActivaHistorialRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TEmpresaActivaHistorialRow>;
+  LRow: TEmpresaActivaHistorialRow;
+begin
+  LRows := TList<TEmpresaActivaHistorialRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
+      LQuery.SQL.Text :=
+        'SELECT FIRST :ftop ' +
+        '  H.CODIGO_EMPRESA_ANTERIOR, H.NOMBRE_EMPRESA_ANTERIOR, ' +
+        '  H.CODIGO_EMPRESA_NUEVA, H.NOMBRE_EMPRESA_NUEVA, H.FECHA_CAMBIO, ' +
+        '  TRIM(U.NOMBRE || '' '' || COALESCE(U.APELLIDO, '''')) AS USUARIO_NOMBRE ' +
+        'FROM EMPRESA_ACTIVA_HISTORIAL H ' +
+        'LEFT JOIN USUARIO U ON U.USUARIO_ID = H.USUARIO_ID ' +
+        'ORDER BY H.FECHA_CAMBIO DESC';
+      LQuery.ParamByName('ftop').AsInteger := ATop;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.UsuarioNombre := LQuery.FieldByName('USUARIO_NOMBRE').AsString;
+        LRow.FechaCambio := LQuery.FieldByName('FECHA_CAMBIO').AsDateTime;
+        LRow.TieneCodigoAnterior := not LQuery.FieldByName('CODIGO_EMPRESA_ANTERIOR').IsNull;
+        if LRow.TieneCodigoAnterior then
+        begin
+          LRow.CodigoAnterior := LQuery.FieldByName('CODIGO_EMPRESA_ANTERIOR').AsInteger;
+          LRow.NombreAnterior := LQuery.FieldByName('NOMBRE_EMPRESA_ANTERIOR').AsString;
+        end;
+        LRow.CodigoNuevo := LQuery.FieldByName('CODIGO_EMPRESA_NUEVA').AsInteger;
+        LRow.NombreNuevo := LQuery.FieldByName('NOMBRE_EMPRESA_NUEVA').AsString;
         LRows.Add(LRow);
         LQuery.Next;
       end;

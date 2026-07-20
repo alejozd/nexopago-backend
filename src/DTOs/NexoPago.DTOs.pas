@@ -782,6 +782,81 @@ type
     property Lineas: TObjectList<THelisaPedidoDetalleLineaDTO> read fLineas;
   end;
 
+  // Respuesta de GET /api/empresa/helisa-disponibles: catalogo DIRECTOR
+  // completo (solo lectura), para el selector de "cambiar empresa".
+  [MVCNameCase(ncCamelCase)]
+  TEmpresaHelisaDisponibleDTO = class
+  private
+    fCodigo: Integer;
+    fNombre: String;
+  public
+    property Codigo: Integer read fCodigo write fCodigo;
+    property Nombre: String read fNombre write fNombre;
+  end;
+
+  // Empresa Helisa activa configurada en EMPRESA_ACTIVA (no confundir con
+  // TEmpresaDTO: esta viene de NexoPago, no de un query directo a DIRECTOR).
+  [MVCNameCase(ncCamelCase)]
+  TEmpresaActivaDTO = class
+  private
+    fCodigo: Integer;
+    fNombre: String;
+    fFechaActivacion: TDateTime;
+  public
+    property Codigo: Integer read fCodigo write fCodigo;
+    property Nombre: String read fNombre write fNombre;
+    property FechaActivacion: TDateTime read fFechaActivacion write fFechaActivacion;
+  end;
+
+  // Fila de GET /api/empresa/configuracion: un cambio de empresa activa.
+  // CodigoAnterior/NombreAnterior nulos en el primer cambio (no habia
+  // configuracion previa).
+  [MVCNameCase(ncCamelCase)]
+  TEmpresaActivaHistorialItemDTO = class
+  private
+    fUsuarioNombre: String;
+    fFechaCambio: TDateTime;
+    fCodigoAnterior: NullableInt64;
+    fNombreAnterior: NullableString;
+    fCodigoNuevo: Integer;
+    fNombreNuevo: String;
+  public
+    property UsuarioNombre: String read fUsuarioNombre write fUsuarioNombre;
+    property FechaCambio: TDateTime read fFechaCambio write fFechaCambio;
+    property CodigoAnterior: NullableInt64 read fCodigoAnterior write fCodigoAnterior;
+    property NombreAnterior: NullableString read fNombreAnterior write fNombreAnterior;
+    property CodigoNuevo: Integer read fCodigoNuevo write fCodigoNuevo;
+    property NombreNuevo: String read fNombreNuevo write fNombreNuevo;
+  end;
+
+  // Respuesta de GET /api/empresa/configuracion. TieneConfiguracion=False
+  // (EmpresaActiva=nil) es el estado esperado en una instalacion nueva: el
+  // Service nunca lanza excepcion por esto, es lo que guia al usuario a
+  // configurar la empresa por primera vez.
+  [MVCNameCase(ncCamelCase)]
+  TEmpresaActivaConfigDTO = class
+  private
+    fTieneConfiguracion: Boolean;
+    fEmpresaActiva: TEmpresaActivaDTO;
+    fHistorial: TObjectList<TEmpresaActivaHistorialItemDTO>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property TieneConfiguracion: Boolean read fTieneConfiguracion write fTieneConfiguracion;
+    property EmpresaActiva: TEmpresaActivaDTO read fEmpresaActiva write fEmpresaActiva;
+    [MVCListOf(TEmpresaActivaHistorialItemDTO)]
+    property Historial: TObjectList<TEmpresaActivaHistorialItemDTO> read fHistorial;
+  end;
+
+  // Body de PUT /api/empresa/activa.
+  [MVCNameCase(ncCamelCase)]
+  TCambiarEmpresaActivaDTO = class
+  private
+    fCodigoEmpresa: Integer;
+  public
+    property CodigoEmpresa: Integer read fCodigoEmpresa write fCodigoEmpresa;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation
@@ -795,6 +870,19 @@ end;
 destructor TPagedResultDTO<T>.Destroy;
 begin
   fData.Free;
+  inherited;
+end;
+
+constructor TEmpresaActivaConfigDTO.Create;
+begin
+  inherited Create;
+  fHistorial := TObjectList<TEmpresaActivaHistorialItemDTO>.Create(True);
+end;
+
+destructor TEmpresaActivaConfigDTO.Destroy;
+begin
+  fEmpresaActiva.Free;
+  fHistorial.Free;
   inherited;
 end;
 

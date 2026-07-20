@@ -30,12 +30,40 @@ implementation
 
 uses
   System.SysUtils,
+  Data.DB,
   MVCFramework.Commons,
-  HConfig;
+  HConfig,
+  NexoPago.Config;
 
+// Antes leia el codigo de empresa Helisa activa de un INI local via HConfig,
+// sin trazabilidad ni auditoria. Ahora sale de EMPRESA_ACTIVA (NexoPago),
+// ver NexoPago.Services.Empresa.TEmpresaService.CambiarEmpresaActiva. Conexion
+// standalone (no TMVCActiveRecord.CurrentConnection): esta funcion puede
+// correr fuera del ciclo de vida de un request MVC, mismo patron que
+// THealthRepository.CheckConnection (NexoPago.Repository.pas).
 function GetCodigoEmpresaHelisa: Integer;
+var
+  LConn: TFDConnection;
+  LQuery: TFDQuery;
 begin
-  Result := StrToIntDef(THConfig.GetInstance.Config.Empresa, 0);
+  LConn := TFDConnection.Create(nil);
+  try
+    LConn.ConnectionDefName := CON_DEF_NAME;
+    LConn.Connected := True;
+
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := LConn;
+      LQuery.Open('SELECT CODIGO_EMPRESA_HELISA FROM EMPRESA_ACTIVA');
+      if LQuery.IsEmpty then
+        raise EMVCException.Create(HTTP_STATUS.BadRequest, 'La empresa Helisa activa no ha sido configurada');
+      Result := LQuery.FieldByName('CODIGO_EMPRESA_HELISA').AsInteger;
+    finally
+      LQuery.Free;
+    end;
+  finally
+    LConn.Free;
+  end;
 end;
 
 function CrearConexion(const AArchivoBD: string): TFDConnection;
