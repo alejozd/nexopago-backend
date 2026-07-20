@@ -65,6 +65,9 @@ NexoPago/
 ├── Backend/                 # Este repositorio: código fuente Delphi (DMVCFramework)
 │   ├── NexoPagoBackend.dpr
 │   ├── NexoPagoBackend.dproj
+│   ├── esquemaBD/               # Schema SQL completo + scripts de alter incrementales
+│   │   ├── nexopago_db.sql          # Schema completo (fuente única para instalaciones nuevas)
+│   │   └── nexopago_db_alter_*.sql  # Alters puntuales para bases ya creadas
 │   ├── src/
 │   │   ├── Config/             # NexoPago.Config.pas (FireDAC vía .env), HConfig.pas (registro Helisa)
 │   │   ├── Utils/               # uPaths.pas
@@ -78,12 +81,11 @@ NexoPago/
 │   │   └── NexoPago.WebModule.pas   # Módulo de composición (registra controllers/servicios)
 │   ├── www/                             # Assets estáticos de Swagger UI
 │   └── .env.sample                      # Plantilla de configuración (sin secretos)
-├── DataBase/                 # Scripts SQL y base de datos local (fuera de git)
+├── DataBase/                 # Base de datos local (fuera de git)
 │   └── NEXOPAGODB.FDB         (ignorado por git)
 ├── Documetacion/              # Propuestas técnicas y diagramas de flujo
 ├── CLAUDE.md                  # Reglas del proyecto para el asistente de IA
-├── CONTEXTO_PROYECTO.md       # Especificación de pantallas y flujos de negocio
-└── nexopago_db.sql            # Schema completo de la base de datos
+└── CONTEXTO_PROYECTO.md       # Especificación de pantallas y flujos de negocio
 ```
 
 > Nota: solo la carpeta `Backend/` está versionada como repositorio git. `DataBase/` y `Documetacion/` viven en el mismo directorio de trabajo local pero no se suben (contienen binarios/documentos internos).
@@ -94,7 +96,7 @@ NexoPago/
 
 - Delphi 12 Athens (RAD Studio 23.0) con Indy y FireDAC.
 - Cliente de Firebird 3.0 instalado (`fbclient.dll` accesible).
-- Base de datos `NEXOPAGODB.FDB` creada a partir de `nexopago_db.sql` (usuario `SYSDBA`).
+- Base de datos `NEXOPAGODB.FDB` creada a partir de `esquemaBD/nexopago_db.sql` (usuario `SYSDBA`).
 
 ### Pasos
 
