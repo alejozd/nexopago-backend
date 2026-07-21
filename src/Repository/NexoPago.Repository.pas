@@ -250,12 +250,24 @@ type
     // (whitelist), nunca texto crudo del cliente.
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
     function GetResumen: TEntradasResumenRow;
+    // SUM(ENTRADA_DETALLE.CANTIDAD_RECIBIDA) para UNA linea de
+    // ORDEN_COMPRA_DETALLE (0 si aun no se ha recibido nada). Base para
+    // validar el tope al registrar una entrada y para el saldo pendiente
+    // que se muestra en el formulario (ver TOrdenesService.GetByID).
+    function GetCantidadRecibida(const AOrdenDetalleID: Int64): Currency;
+    // SUM(ENTRADA_DETALLE.CANTIDAD_RECIBIDA) de TODAS las lineas de una
+    // orden (todas sus entradas). Se compara contra el total pedido para
+    // decidir si la orden queda RECIBIDA o PARCIALMENTE_RECIBIDA (ver
+    // TEntradasMercanciaService.RegistrarEntrada).
+    function GetTotalCantidadRecibida(const AOrdenID: Int64): Currency;
   end;
 
   TEntradasMercanciaRepository = class(TMVCRepository<TEntradaMercancia>, IEntradasMercanciaRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
     function GetResumen: TEntradasResumenRow;
+    function GetCantidadRecibida(const AOrdenDetalleID: Int64): Currency;
+    function GetTotalCantidadRecibida(const AOrdenID: Int64): Currency;
   end;
 
   IModuloRepository = interface(IMVCRepository<TModulo>)
@@ -876,6 +888,44 @@ begin
     Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
     Result.UltimoMes := LQuery.FieldByName('ULTIMO_MES').AsLargeInt;
     Result.OrdenesAsociadas := LQuery.FieldByName('ORDENES_ASOCIADAS').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TEntradasMercanciaRepository.GetCantidadRecibida(const AOrdenDetalleID: Int64): Currency;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT COALESCE(SUM(CANTIDAD_RECIBIDA), 0) AS CANTIDAD ' +
+      'FROM ENTRADA_DETALLE WHERE ORDEN_DETALLE_ID = :ordenDetalleId';
+    LQuery.ParamByName('ordenDetalleId').AsLargeInt := AOrdenDetalleID;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsCurrency;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TEntradasMercanciaRepository.GetTotalCantidadRecibida(const AOrdenID: Int64): Currency;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT COALESCE(SUM(ED.CANTIDAD_RECIBIDA), 0) AS CANTIDAD ' +
+      'FROM ENTRADA_DETALLE ED ' +
+      'INNER JOIN ENTRADAS_MERCANCIA E ON E.ENTRADA_ID = ED.ENTRADA_ID ' +
+      'WHERE E.ORDEN_ID = :ordenId';
+    LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsCurrency;
   finally
     LQuery.Free;
   end;

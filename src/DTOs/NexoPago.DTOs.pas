@@ -207,6 +207,8 @@ type
     fPrecioUnitario: Currency;
     fSubtotal: Currency;
     fConsecutivoPedidoHelisa: NullableInt32;
+    fCantidadRecibida: Currency;
+    fSaldoPendiente: Currency;
   public
     property ID: Int64 read fID write fID;
     property ProductoID: Int64 read fProductoID write fProductoID;
@@ -220,6 +222,14 @@ type
     // Consecutivo de PETRXXXX del que salio esta linea (nullable: ordenes que
     // no vienen de un pedido de Helisa, o creadas antes de esta funcionalidad).
     property ConsecutivoPedidoHelisa: NullableInt32 read fConsecutivoPedidoHelisa write fConsecutivoPedidoHelisa;
+    // Suma de ENTRADA_DETALLE.CANTIDAD_RECIBIDA para esta linea (0 si aun no
+    // se ha recibido nada). Base real para el % recibido de la orden y para
+    // validar el tope al registrar una nueva entrada (ver
+    // TEntradasMercanciaService.RegistrarEntrada).
+    property CantidadRecibida: Currency read fCantidadRecibida write fCantidadRecibida;
+    // Cantidad - CantidadRecibida. Nunca negativo (la validacion de backend
+    // impide recibir mas de lo pedido).
+    property SaldoPendiente: Currency read fSaldoPendiente write fSaldoPendiente;
   end;
 
   // Respuesta de GET /api/ordenes/(id): cabecera + lineas completas.
@@ -356,23 +366,42 @@ type
     property Observaciones: NullableString read fObservaciones write fObservaciones;
   end;
 
-  // Entrada de POST /api/entradas. "completa" decide si la orden pasa a
-  // RECIBIDA o PARCIALMENTE_RECIBIDA (sin tracking de cantidades no hay forma
-  // de inferirlo solo, ver NexoPago.Services.EntradasMercancia).
+  // Linea de POST /api/entradas: cuanto se recibe de una linea puntual de
+  // ORDEN_COMPRA_DETALLE en esta entrada. El backend valida que no exceda
+  // el saldo pendiente de esa linea (ver
+  // TEntradasMercanciaService.RegistrarEntrada).
+  [MVCNameCase(ncCamelCase)]
+  TEntradaLineaCreateDTO = class
+  private
+    fOrdenDetalleID: Int64;
+    fCantidadRecibida: Currency;
+  public
+    property OrdenDetalleID: Int64 read fOrdenDetalleID write fOrdenDetalleID;
+    property CantidadRecibida: Currency read fCantidadRecibida write fCantidadRecibida;
+  end;
+
+  // Entrada de POST /api/entradas: cabecera + cantidad recibida por linea.
+  // El estado resultante de la orden (RECIBIDA/PARCIALMENTE_RECIBIDA) ya NO
+  // se recibe del cliente ("completa" ya no existe aqui): el backend lo
+  // calcula comparando el total pedido contra el total real recibido tras
+  // insertar estas lineas (ver TEntradasMercanciaService.RegistrarEntrada).
   [MVCNameCase(ncCamelCase)]
   TEntradaCreateDTO = class
   private
     fOrdenID: Int64;
     fNumeroEntradaHelisa: String;
     fFechaEntrada: TDate;
-    fCompleta: Boolean;
     fObservaciones: NullableString;
+    fDetalles: TObjectList<TEntradaLineaCreateDTO>;
   public
+    constructor Create;
+    destructor Destroy; override;
     property OrdenID: Int64 read fOrdenID write fOrdenID;
     property NumeroEntradaHelisa: String read fNumeroEntradaHelisa write fNumeroEntradaHelisa;
     property FechaEntrada: TDate read fFechaEntrada write fFechaEntrada;
-    property Completa: Boolean read fCompleta write fCompleta;
     property Observaciones: NullableString read fObservaciones write fObservaciones;
+    [MVCListOf(TEntradaLineaCreateDTO)]
+    property Detalles: TObjectList<TEntradaLineaCreateDTO> read fDetalles;
   end;
 
   // Fila del listado paginado GET /api/entradas (pantalla de auditoria,
@@ -925,6 +954,18 @@ begin
 end;
 
 destructor TOrdenCompraFullDTO.Destroy;
+begin
+  fDetalles.Free;
+  inherited;
+end;
+
+constructor TEntradaCreateDTO.Create;
+begin
+  inherited Create;
+  fDetalles := TObjectList<TEntradaLineaCreateDTO>.Create(True);
+end;
+
+destructor TEntradaCreateDTO.Destroy;
 begin
   fDetalles.Free;
   inherited;
