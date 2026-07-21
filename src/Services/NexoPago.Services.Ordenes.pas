@@ -52,6 +52,10 @@ type
     // dependencia de Repository, no de Service, para no acoplar Services
     // entre si (ver ValidarSaldoPedidoHelisa).
     fHelisaPedidosRepository: IHelisaPedidosRepository;
+    // Solo para leer ENTRADA_DETALLE.CANTIDAD_RECIBIDA por linea (mismo
+    // criterio que fRecibosRepository: dependencia de Repository, no de
+    // Service, ver GetByID).
+    fEntradasMercanciaRepository: IEntradasMercanciaRepository;
     function BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
     procedure ValidarDatosCreacion(const ADatos: TOrdenCompraCreateDTO);
     // Regla de Maribel: si una linea referencia una linea de un pedido de
@@ -65,7 +69,8 @@ type
   public
     constructor Create(AOrdenesRepository: IOrdenesRepository; AProveedorRepository: IProveedorRepository;
       AProductoRepository: IProductoRepository; ARecibosRepository: IRecibosRepository;
-      AHelisaPedidosRepository: IHelisaPedidosRepository);
+      AHelisaPedidosRepository: IHelisaPedidosRepository;
+      AEntradasMercanciaRepository: IEntradasMercanciaRepository);
     function GetPaged(const APage, ARows: Integer; const ASortField: String;
       const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
@@ -77,7 +82,8 @@ type
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
   AProveedorRepository: IProveedorRepository; AProductoRepository: IProductoRepository;
-  ARecibosRepository: IRecibosRepository; AHelisaPedidosRepository: IHelisaPedidosRepository);
+  ARecibosRepository: IRecibosRepository; AHelisaPedidosRepository: IHelisaPedidosRepository;
+  AEntradasMercanciaRepository: IEntradasMercanciaRepository);
 begin
   inherited Create;
   fOrdenesRepository := AOrdenesRepository;
@@ -85,6 +91,7 @@ begin
   fProductoRepository := AProductoRepository;
   fRecibosRepository := ARecibosRepository;
   fHelisaPedidosRepository := AHelisaPedidosRepository;
+  fEntradasMercanciaRepository := AEntradasMercanciaRepository;
 end;
 
 function TOrdenesService.BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
@@ -203,6 +210,8 @@ begin
           LLineaDTO.PrecioUnitario := LDetalle.PrecioUnitario;
           LLineaDTO.Subtotal := LDetalle.Subtotal; // calculado por Firebird, nunca en Delphi
           LLineaDTO.ConsecutivoPedidoHelisa := LDetalle.ConsecutivoPedidoHelisa;
+          LLineaDTO.CantidadRecibida := fEntradasMercanciaRepository.GetCantidadRecibida(LDetalle.ID.ValueOrDefault);
+          LLineaDTO.SaldoPendiente := LDetalle.Cantidad - LLineaDTO.CantidadRecibida;
           Result.ValorTotal := Result.ValorTotal + LDetalle.Subtotal;
           Result.Detalles.Add(LLineaDTO);
         end;

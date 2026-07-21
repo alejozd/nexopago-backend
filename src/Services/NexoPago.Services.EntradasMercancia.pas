@@ -27,6 +27,7 @@ implementation
 uses
   System.SysUtils,
   System.Math,
+  System.Generics.Collections,
   MVCFramework.Commons,
   MVCFramework.ActiveRecord,
   FireDAC.Comp.Client,
@@ -126,6 +127,11 @@ var
   LConn: TFDConnection;
   LOrden: TOrdenCompra;
   LEntrada: TEntradaMercancia;
+  LLineaDTO: TEntradaLineaCreateDTO;
+  LDetalleOrden, LDetalleOrdenEncontrado: TOrdenCompraDetalle;
+  LDetalleEntrada: TEntradaDetalle;
+  LCantidadYaRecibida, LSaldoDisponible: Currency;
+  LTotalOrdenado, LTotalRecibido: Currency;
 begin
   if ADatos.OrdenID <= 0 then
     raise EMVCException.Create(HTTP_STATUS.BadRequest, 'ordenId es requerido');
@@ -133,6 +139,9 @@ begin
     raise EMVCException.Create(HTTP_STATUS.BadRequest, 'numeroEntradaHelisa es requerido');
   if ADatos.FechaEntrada = 0 then
     raise EMVCException.Create(HTTP_STATUS.BadRequest, 'fechaEntrada es requerida');
+  if (ADatos.Detalles = nil) or (ADatos.Detalles.Count = 0) then
+    raise EMVCException.Create(HTTP_STATUS.BadRequest,
+      'Debe indicar la cantidad recibida de al menos un producto de la orden');
 
   LConn := TMVCActiveRecord.CurrentConnection;
   LConn.StartTransaction;
@@ -162,9 +171,55 @@ begin
         LEntrada.Free;
       end;
 
-      // Sin tracking de cantidades no hay forma de inferir esto solo: lo
-      // decide quien registra la entrada (ver TEntradaCreateDTO.Completa).
-      if ADatos.Completa then
+      // LOrden.Detalles ya viene cargado por GetByPK ([MVCOwned] en la
+      // entidad): se busca ahi mismo en vez de una consulta nueva, y de
+      // paso valida que la linea si pertenezca a esta orden.
+      for LLineaDTO in ADatos.Detalles do
+      begin
+        if LLineaDTO.CantidadRecibida <= 0 then
+          Continue; // lineas en 0 no generan registro
+
+        LDetalleOrdenEncontrado := nil;
+        for LDetalleOrden in LOrden.Detalles do
+          if LDetalleOrden.ID.ValueOrDefault = LLineaDTO.OrdenDetalleID then
+          begin
+            LDetalleOrdenEncontrado := LDetalleOrden;
+            Break;
+          end;
+        if LDetalleOrdenEncontrado = nil then
+          raise EMVCException.Create(HTTP_STATUS.BadRequest,
+            'La linea de producto indicada no pertenece a esta orden');
+
+        LCantidadYaRecibida := fEntradasRepository.GetCantidadRecibida(LLineaDTO.OrdenDetalleID);
+        LSaldoDisponible := LDetalleOrdenEncontrado.Cantidad - LCantidadYaRecibida;
+        if LLineaDTO.CantidadRecibida > LSaldoDisponible then
+          raise EMVCException.Create(HTTP_STATUS.BadRequest,
+            Format('La cantidad recibida (%.2f) supera el saldo pendiente (%.2f) de esa linea',
+            [LLineaDTO.CantidadRecibida, LSaldoDisponible]));
+
+        LDetalleEntrada := TEntradaDetalle.Create;
+        try
+          LDetalleEntrada.EntradaID := Result;
+          LDetalleEntrada.OrdenDetalleID := LLineaDTO.OrdenDetalleID;
+          LDetalleEntrada.CantidadRecibida := LLineaDTO.CantidadRecibida;
+          LDetalleEntrada.EstadoRegistro := 'A';
+          if AUsuarioID > 0 then
+            LDetalleEntrada.UsuarioCreoID := AUsuarioID;
+          LDetalleEntrada.Insert;
+        finally
+          LDetalleEntrada.Free;
+        end;
+      end;
+
+      // Estado real de la orden: total pedido (todas las lineas) contra
+      // total recibido (todas las entradas, incluida la que se acaba de
+      // insertar) -- ya no se recibe "completa" del cliente.
+      LTotalOrdenado := 0;
+      for LDetalleOrden in LOrden.Detalles do
+        LTotalOrdenado := LTotalOrdenado + LDetalleOrden.Cantidad;
+      LTotalRecibido := fEntradasRepository.GetTotalCantidadRecibida(LOrden.ID.ValueOrDefault);
+
+      if LTotalRecibido >= LTotalOrdenado then
         LOrden.Estado := 'RECIBIDA'
       else
         LOrden.Estado := 'PARCIALMENTE_RECIBIDA';
