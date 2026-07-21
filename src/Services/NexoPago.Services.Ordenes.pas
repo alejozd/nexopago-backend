@@ -192,7 +192,10 @@ begin
           LProducto := fProductoRepository.GetByPK(LDetalle.ProductoID, False);
           try
             if Assigned(LProducto) then
+            begin
               LLineaDTO.ProductoDescripcion := LProducto.Descripcion;
+              LLineaDTO.ProductoCodigoInterno := LProducto.CodigoInterno;
+            end;
           finally
             LProducto.Free;
           end;

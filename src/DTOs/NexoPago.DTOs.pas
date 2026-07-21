@@ -202,6 +202,7 @@ type
     fID: Int64;
     fProductoID: Int64;
     fProductoDescripcion: String;
+    fProductoCodigoInterno: NullableString;
     fCantidad: Currency;
     fPrecioUnitario: Currency;
     fSubtotal: Currency;
@@ -210,6 +211,9 @@ type
     property ID: Int64 read fID write fID;
     property ProductoID: Int64 read fProductoID write fProductoID;
     property ProductoDescripcion: String read fProductoDescripcion write fProductoDescripcion;
+    // Nullable: PRODUCTO.CODIGO_INTERNO es opcional en el catalogo (no todo
+    // producto sincronizado desde Helisa tiene uno asignado).
+    property ProductoCodigoInterno: NullableString read fProductoCodigoInterno write fProductoCodigoInterno;
     property Cantidad: Currency read fCantidad write fCantidad;
     property PrecioUnitario: Currency read fPrecioUnitario write fPrecioUnitario;
     property Subtotal: Currency read fSubtotal write fSubtotal;
