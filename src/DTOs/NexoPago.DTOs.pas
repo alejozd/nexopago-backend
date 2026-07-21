@@ -502,10 +502,12 @@ type
     fTotal: Int64;
     fActivos: Int64;
     fInactivos: Int64;
+    fCreadosUltimoMes: Int64;
   public
     property Total: Int64 read fTotal write fTotal;
     property Activos: Int64 read fActivos write fActivos;
     property Inactivos: Int64 read fInactivos write fInactivos;
+    property CreadosUltimoMes: Int64 read fCreadosUltimoMes write fCreadosUltimoMes;
   end;
 
   [MVCNameCase(ncCamelCase)]

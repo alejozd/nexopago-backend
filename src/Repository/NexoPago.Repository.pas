@@ -69,6 +69,7 @@ type
     Total: Int64;
     Activos: Int64;
     Inactivos: Int64;
+    CreadosUltimoMes: Int64;
   end;
 
   IProveedorRepository = interface(IMVCRepository<TProveedor>)
@@ -947,12 +948,14 @@ begin
       'SELECT ' +
       '  (SELECT COUNT(*) FROM PROVEEDOR) AS TOTAL, ' +
       '  (SELECT COUNT(*) FROM PROVEEDOR WHERE ACTIVO = 1) AS ACTIVOS, ' +
-      '  (SELECT COUNT(*) FROM PROVEEDOR WHERE ACTIVO = 0) AS INACTIVOS ' +
+      '  (SELECT COUNT(*) FROM PROVEEDOR WHERE ACTIVO = 0) AS INACTIVOS, ' +
+      '  (SELECT COUNT(*) FROM PROVEEDOR WHERE FECHA_CREACION >= DATEADD(-30 DAY TO CURRENT_DATE)) AS CREADOS_ULTIMO_MES ' +
       'FROM RDB$DATABASE';
     LQuery.Open;
     Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
     Result.Activos := LQuery.FieldByName('ACTIVOS').AsLargeInt;
     Result.Inactivos := LQuery.FieldByName('INACTIVOS').AsLargeInt;
+    Result.CreadosUltimoMes := LQuery.FieldByName('CREADOS_ULTIMO_MES').AsLargeInt;
   finally
     LQuery.Free;
   end;

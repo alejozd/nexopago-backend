@@ -25,7 +25,7 @@ type
     // Rechaza el borrado (409) si el proveedor tiene ordenes de compra
     // asociadas: la FK no tiene cascada.
     procedure EliminarProveedor(const AProveedorID: Int64);
-    // Tarjetas KPI del listado: Total, Activos, Inactivos.
+    // Tarjetas KPI del listado: Total, Activos, Inactivos, CreadosUltimoMes.
     function GetResumen: TProveedoresResumenDTO;
   end;
 
@@ -348,6 +348,7 @@ begin
   Result.Total := LRow.Total;
   Result.Activos := LRow.Activos;
   Result.Inactivos := LRow.Inactivos;
+  Result.CreadosUltimoMes := LRow.CreadosUltimoMes;
 end;
 
 constructor TProductosService.Create(ARepository: IProductoRepository);
