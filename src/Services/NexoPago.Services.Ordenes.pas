@@ -178,7 +178,6 @@ begin
           Result.ProveedorNombre := LProveedor.Nombre;
         Result.NumeroPedidoHelisa := LOrden.NumeroPedidoHelisa;
         Result.FechaPedidoHelisa := LOrden.FechaPedidoHelisa;
-        Result.TotalPedidoHelisa := LOrden.TotalPedidoHelisa;
         Result.Proyecto := LOrden.Proyecto;
         Result.Solicitud := LOrden.Solicitud;
         Result.Observaciones := LOrden.Observaciones;
@@ -377,7 +376,6 @@ begin
       LOrden.ProveedorID := ADatos.ProveedorID;
       LOrden.NumeroPedidoHelisa := ADatos.NumeroPedidoHelisa;
       LOrden.FechaPedidoHelisa := ADatos.FechaPedidoHelisa;
-      LOrden.TotalPedidoHelisa := ADatos.TotalPedidoHelisa;
       LOrden.Proyecto := ADatos.Proyecto;
       LOrden.Solicitud := ADatos.Solicitud;
       LOrden.Observaciones := ADatos.Observaciones;
@@ -442,7 +440,6 @@ begin
       LOrden.FechaOrden := ADatos.FechaOrden;
       LOrden.NumeroPedidoHelisa := ADatos.NumeroPedidoHelisa;
       LOrden.FechaPedidoHelisa := ADatos.FechaPedidoHelisa;
-      LOrden.TotalPedidoHelisa := ADatos.TotalPedidoHelisa;
       LOrden.Proyecto := ADatos.Proyecto;
       LOrden.Solicitud := ADatos.Solicitud;
       LOrden.Observaciones := ADatos.Observaciones;

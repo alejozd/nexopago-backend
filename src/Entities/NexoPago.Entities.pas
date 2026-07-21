@@ -228,8 +228,6 @@ type
     fNumeroPedidoHelisa: NullableString;
     [MVCTableField('FECHA_PEDIDO_HELISA')]
     fFechaPedidoHelisa: NullableTDate;
-    [MVCTableField('TOTAL_PEDIDO_HELISA')]
-    fTotalPedidoHelisa: NullableCurrency;
     // Proyecto/unidad de negocio (texto libre) y solicitud (identificador
     // abreviado, ej. REM-14869, ST-004825) que origina la orden. Nullable:
     // ordenes creadas antes de este cambio no lo tienen. Ver
@@ -270,7 +268,6 @@ type
     property ProveedorID: Int64 read fProveedorID write fProveedorID;
     property NumeroPedidoHelisa: NullableString read fNumeroPedidoHelisa write fNumeroPedidoHelisa;
     property FechaPedidoHelisa: NullableTDate read fFechaPedidoHelisa write fFechaPedidoHelisa;
-    property TotalPedidoHelisa: NullableCurrency read fTotalPedidoHelisa write fTotalPedidoHelisa;
     property Proyecto: NullableString read fProyecto write fProyecto;
     property Solicitud: NullableString read fSolicitud write fSolicitud;
     property Observaciones: NullableString read fObservaciones write fObservaciones;
