@@ -181,6 +181,8 @@ type
     fProveedorNombre: String;
     fEstado: String;
     fValorTotal: Currency;
+    fProyecto: String;
+    fSolicitud: String;
   public
     property ID: Int64 read fID write fID;
     property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
@@ -188,6 +190,8 @@ type
     property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
     property Estado: String read fEstado write fEstado;
     property ValorTotal: Currency read fValorTotal write fValorTotal;
+    property Proyecto: String read fProyecto write fProyecto;
+    property Solicitud: String read fSolicitud write fSolicitud;
   end;
 
   // Linea de detalle para la respuesta de GET /api/ordenes/(id). Subtotal
@@ -226,6 +230,8 @@ type
     fNumeroPedidoHelisa: NullableString;
     fFechaPedidoHelisa: NullableTDate;
     fTotalPedidoHelisa: NullableCurrency;
+    fProyecto: NullableString;
+    fSolicitud: NullableString;
     fObservaciones: NullableString;
     fEstado: String;
     fValorTotal: Currency;
@@ -243,6 +249,11 @@ type
     property NumeroPedidoHelisa: NullableString read fNumeroPedidoHelisa write fNumeroPedidoHelisa;
     property FechaPedidoHelisa: NullableTDate read fFechaPedidoHelisa write fFechaPedidoHelisa;
     property TotalPedidoHelisa: NullableCurrency read fTotalPedidoHelisa write fTotalPedidoHelisa;
+    // Proyecto/unidad de negocio (texto libre) y solicitud (identificador
+    // abreviado) que origina la orden. Nullable: ordenes creadas antes de
+    // este cambio no lo tienen.
+    property Proyecto: NullableString read fProyecto write fProyecto;
+    property Solicitud: NullableString read fSolicitud write fSolicitud;
     property Observaciones: NullableString read fObservaciones write fObservaciones;
     property Estado: String read fEstado write fEstado;
     property ValorTotal: Currency read fValorTotal write fValorTotal;
@@ -283,6 +294,8 @@ type
     fNumeroPedidoHelisa: NullableString;
     fFechaPedidoHelisa: NullableTDate;
     fTotalPedidoHelisa: NullableCurrency;
+    fProyecto: NullableString;
+    fSolicitud: NullableString;
     fObservaciones: NullableString;
     fDetalles: TObjectList<TOrdenCompraLineaCreateDTO>;
   public
@@ -293,6 +306,10 @@ type
     property NumeroPedidoHelisa: NullableString read fNumeroPedidoHelisa write fNumeroPedidoHelisa;
     property FechaPedidoHelisa: NullableTDate read fFechaPedidoHelisa write fFechaPedidoHelisa;
     property TotalPedidoHelisa: NullableCurrency read fTotalPedidoHelisa write fTotalPedidoHelisa;
+    // Proyecto/unidad de negocio (texto libre) y solicitud (identificador
+    // abreviado) que origina la orden.
+    property Proyecto: NullableString read fProyecto write fProyecto;
+    property Solicitud: NullableString read fSolicitud write fSolicitud;
     property Observaciones: NullableString read fObservaciones write fObservaciones;
     [MVCListOf(TOrdenCompraLineaCreateDTO)]
     property Detalles: TObjectList<TOrdenCompraLineaCreateDTO> read fDetalles;

@@ -102,6 +102,10 @@ begin
     LColumn := 'OC.ESTADO'
   else if LField = 'proveedornombre' then
     LColumn := 'P.NOMBRE'
+  else if LField = 'proyecto' then
+    LColumn := 'OC.PROYECTO'
+  else if LField = 'solicitud' then
+    LColumn := 'OC.SOLICITUD'
   else if LField = 'valortotal' then
     LColumn := 'VALOR_TOTAL'
   else
@@ -140,6 +144,8 @@ begin
       LDTO.ProveedorNombre := LRow.ProveedorNombre;
       LDTO.Estado := LRow.Estado;
       LDTO.ValorTotal := LRow.ValorTotal;
+      LDTO.Proyecto := LRow.Proyecto;
+      LDTO.Solicitud := LRow.Solicitud;
       Result.Data.Add(LDTO);
     end;
   except
@@ -173,6 +179,8 @@ begin
         Result.NumeroPedidoHelisa := LOrden.NumeroPedidoHelisa;
         Result.FechaPedidoHelisa := LOrden.FechaPedidoHelisa;
         Result.TotalPedidoHelisa := LOrden.TotalPedidoHelisa;
+        Result.Proyecto := LOrden.Proyecto;
+        Result.Solicitud := LOrden.Solicitud;
         Result.Observaciones := LOrden.Observaciones;
         Result.Estado := LOrden.Estado;
         Result.MontoPagado := fRecibosRepository.GetTotalPagado(LOrden.ID.ValueOrDefault);
@@ -370,6 +378,8 @@ begin
       LOrden.NumeroPedidoHelisa := ADatos.NumeroPedidoHelisa;
       LOrden.FechaPedidoHelisa := ADatos.FechaPedidoHelisa;
       LOrden.TotalPedidoHelisa := ADatos.TotalPedidoHelisa;
+      LOrden.Proyecto := ADatos.Proyecto;
+      LOrden.Solicitud := ADatos.Solicitud;
       LOrden.Observaciones := ADatos.Observaciones;
       LOrden.Estado := 'BORRADOR';
       LOrden.EstadoRegistro := 'A';
@@ -433,6 +443,8 @@ begin
       LOrden.NumeroPedidoHelisa := ADatos.NumeroPedidoHelisa;
       LOrden.FechaPedidoHelisa := ADatos.FechaPedidoHelisa;
       LOrden.TotalPedidoHelisa := ADatos.TotalPedidoHelisa;
+      LOrden.Proyecto := ADatos.Proyecto;
+      LOrden.Solicitud := ADatos.Solicitud;
       LOrden.Observaciones := ADatos.Observaciones;
       if AUsuarioID > 0 then
         LOrden.UsuarioModificoID := AUsuarioID;
