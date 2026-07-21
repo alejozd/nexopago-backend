@@ -229,7 +229,6 @@ type
     fProveedorNombre: String;
     fNumeroPedidoHelisa: NullableString;
     fFechaPedidoHelisa: NullableTDate;
-    fTotalPedidoHelisa: NullableCurrency;
     fProyecto: NullableString;
     fSolicitud: NullableString;
     fObservaciones: NullableString;
@@ -248,7 +247,6 @@ type
     property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
     property NumeroPedidoHelisa: NullableString read fNumeroPedidoHelisa write fNumeroPedidoHelisa;
     property FechaPedidoHelisa: NullableTDate read fFechaPedidoHelisa write fFechaPedidoHelisa;
-    property TotalPedidoHelisa: NullableCurrency read fTotalPedidoHelisa write fTotalPedidoHelisa;
     // Proyecto/unidad de negocio (texto libre) y solicitud (identificador
     // abreviado) que origina la orden. Nullable: ordenes creadas antes de
     // este cambio no lo tienen.
@@ -293,7 +291,6 @@ type
     fFechaOrden: TDate;
     fNumeroPedidoHelisa: NullableString;
     fFechaPedidoHelisa: NullableTDate;
-    fTotalPedidoHelisa: NullableCurrency;
     fProyecto: NullableString;
     fSolicitud: NullableString;
     fObservaciones: NullableString;
@@ -305,7 +302,6 @@ type
     property FechaOrden: TDate read fFechaOrden write fFechaOrden;
     property NumeroPedidoHelisa: NullableString read fNumeroPedidoHelisa write fNumeroPedidoHelisa;
     property FechaPedidoHelisa: NullableTDate read fFechaPedidoHelisa write fFechaPedidoHelisa;
-    property TotalPedidoHelisa: NullableCurrency read fTotalPedidoHelisa write fTotalPedidoHelisa;
     // Proyecto/unidad de negocio (texto libre) y solicitud (identificador
     // abreviado) que origina la orden.
     property Proyecto: NullableString read fProyecto write fProyecto;
