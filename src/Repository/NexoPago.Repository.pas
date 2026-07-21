@@ -122,6 +122,8 @@ type
     Estado: String;
     ProveedorNombre: String;
     ValorTotal: Currency;
+    Proyecto: String;
+    Solicitud: String;
   end;
 
   TOrdenesResumenRow = record
@@ -497,11 +499,12 @@ begin
       LQuery.SQL.Text :=
         'SELECT FIRST :flimit SKIP :foffset ' +
         '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
-        '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL ' +
+        '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
+        '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
         'FROM ORDEN_COMPRA OC ' +
         'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
         'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
-        'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE ' +
+        'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
         'ORDER BY ' + ASortColumnSQL;
       LQuery.ParamByName('flimit').AsInteger := ALimit;
       LQuery.ParamByName('foffset').AsInteger := AOffset;
@@ -514,6 +517,8 @@ begin
         LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
         LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
         LRow.ValorTotal := LQuery.FieldByName('VALOR_TOTAL').AsCurrency;
+        LRow.Proyecto := LQuery.FieldByName('PROYECTO').AsString;
+        LRow.Solicitud := LQuery.FieldByName('SOLICITUD').AsString;
         LRows.Add(LRow);
         LQuery.Next;
       end;
