@@ -10,6 +10,11 @@ uses
   NexoPago.Services.HelisaPedidos,
   NexoPago.DTOs;
 
+const
+  // Rango por defecto cuando el cliente no manda desde/hasta (mismo valor
+  // que antes, cuando estaba fijo en el Service).
+  DIAS_ATRAS_DEFECTO = 60;
+
 type
   // Buscador de "Numero Pedido Helisa" en el formulario de Ordenes. Como el
   // middleware de auth deniega por defecto (ver TNexoPagoAuthHandler.OnRequest),
@@ -22,10 +27,14 @@ type
     [MVCInject]
     constructor Create(AHelisaPedidosService: IHelisaPedidosService); reintroduce;
 
-    [MVCSwagSummary('HelisaPedidos', 'Pedidos de compra recientes registrados en Helisa (ultimos 60 dias)')]
+    // desde/hasta (opcionales, formato YYYY-MM-DD): si no se mandan, cae al
+    // default de los ultimos 60 dias (mismo comportamiento que antes, cuando
+    // el rango no era configurable desde el cliente).
+    [MVCSwagSummary('HelisaPedidos', 'Pedidos de compra registrados en Helisa en un rango de fechas (por defecto, ultimos 60 dias)')]
     [MVCPath('/helisa/pedidos')]
     [MVCHTTPMethod([httpGET])]
-    function GetPedidosRecientes: TObjectList<THelisaPedidoResumenDTO>;
+    function GetPedidosRecientes(const [MVCFromQueryString('desde', '')] desde: String;
+      const [MVCFromQueryString('hasta', '')] hasta: String): TObjectList<THelisaPedidoResumenDTO>;
 
     // numero va por querystring (no como segmento de ruta): DOCUMENTO en
     // Helisa suele traer espacios internos (ej. "JN  00001604"), poco fiables
@@ -42,18 +51,43 @@ type
 
 implementation
 
+uses
+  System.SysUtils,
+  System.DateUtils;
+
 constructor THelisaPedidosController.Create(AHelisaPedidosService: IHelisaPedidosService);
 begin
   inherited Create;
   fHelisaPedidosService := AHelisaPedidosService;
 end;
 
-function THelisaPedidosController.GetPedidosRecientes: TObjectList<THelisaPedidoResumenDTO>;
+function THelisaPedidosController.GetPedidosRecientes(const desde, hasta: String): TObjectList<THelisaPedidoResumenDTO>;
 var
   LPedido: THelisaPedidoResumenDTO;
+  LDesde, LHasta: TDateTime;
+  LFmt: TFormatSettings;
 begin
+  LFmt := TFormatSettings.Create;
+  LFmt.ShortDateFormat := 'yyyy-mm-dd';
+  LFmt.DateSeparator := '-';
+
+  try
+    if Trim(desde) <> '' then
+      LDesde := StrToDate(Trim(desde), LFmt)
+    else
+      LDesde := IncDay(Date, -DIAS_ATRAS_DEFECTO);
+
+    if Trim(hasta) <> '' then
+      LHasta := StrToDate(Trim(hasta), LFmt)
+    else
+      LHasta := Date;
+  except
+    on E: EConvertError do
+      raise EMVCException.Create(HTTP_STATUS.BadRequest, '"desde"/"hasta" deben tener formato YYYY-MM-DD');
+  end;
+
   Result := TObjectList<THelisaPedidoResumenDTO>.Create(True);
-  for LPedido in fHelisaPedidosService.ListarPedidosRecientes do
+  for LPedido in fHelisaPedidosService.ListarPedidosRecientes(LDesde, LHasta) do
     Result.Add(LPedido);
 end;
 

@@ -9,8 +9,11 @@ uses
 type
   IHelisaPedidosService = interface
     ['{9A6F1E2D-3C4B-4A5E-8D7F-1B2C3D4E5F60}']
-    // Pedidos de los ultimos ADiasAtras dias (por defecto 60, ver CONTEXTO_PROYECTO.md).
-    function ListarPedidosRecientes(const ADiasAtras: Integer = 60): TArray<THelisaPedidoResumenDTO>;
+    // Rango de fechas a consultar en Helisa. El default de "ultimos 60 dias"
+    // (ver CONTEXTO_PROYECTO.md) ya no vive aqui: lo resuelve el Controller a
+    // partir de los query params opcionales `desde`/`hasta`, para que este
+    // Service solo trabaje con un rango ya concreto.
+    function ListarPedidosRecientes(const ADesde, AHasta: TDateTime): TArray<THelisaPedidoResumenDTO>;
     // AOrdenIDExcluir: al editar una orden existente, sus propias lineas no
     // deben contar como "consumo" contra si misma (ver
     // IOrdenesRepository.ObtenerConsumoPedidoHelisa). 0 = no excluir ninguna.
@@ -24,7 +27,6 @@ implementation
 
 uses
   System.SysUtils,
-  System.DateUtils,
   System.Generics.Collections,
   MVCFramework.Commons,
   NexoPago.Repository,
@@ -41,7 +43,7 @@ type
     fOrdenesRepository: IOrdenesRepository;
   public
     constructor Create(ARepository: IHelisaPedidosRepository; AOrdenesRepository: IOrdenesRepository);
-    function ListarPedidosRecientes(const ADiasAtras: Integer = 60): TArray<THelisaPedidoResumenDTO>;
+    function ListarPedidosRecientes(const ADesde, AHasta: TDateTime): TArray<THelisaPedidoResumenDTO>;
     function ObtenerDetallePedido(const ANumeroPedido: String;
       const AOrdenIDExcluir: Int64 = 0): THelisaPedidoDetalleDTO;
   end;
@@ -53,17 +55,21 @@ begin
   fOrdenesRepository := AOrdenesRepository;
 end;
 
-function THelisaPedidosService.ListarPedidosRecientes(const ADiasAtras: Integer): TArray<THelisaPedidoResumenDTO>;
+function THelisaPedidosService.ListarPedidosRecientes(const ADesde, AHasta: TDateTime): TArray<THelisaPedidoResumenDTO>;
 var
-  LFechaLimiteHelisa: Integer;
+  LFechaDesdeHelisa, LFechaHastaHelisa: Integer;
   LRows: TArray<THelisaPedidoResumenRow>;
   LRow: THelisaPedidoResumenRow;
   LResult: TArray<THelisaPedidoResumenDTO>;
   I: Integer;
 begin
-  LFechaLimiteHelisa := DateToHeDate(IncDay(Now, -ADiasAtras));
+  if ADesde > AHasta then
+    raise EMVCException.Create(HTTP_STATUS.BadRequest, '"desde" no puede ser posterior a "hasta"');
+
+  LFechaDesdeHelisa := DateToHeDate(ADesde);
+  LFechaHastaHelisa := DateToHeDate(AHasta);
   try
-    LRows := fRepository.ListarPedidosRecientes(LFechaLimiteHelisa);
+    LRows := fRepository.ListarPedidosRecientes(LFechaDesdeHelisa, LFechaHastaHelisa);
   except
     on E: Exception do
       raise EMVCException.Create(HTTP_STATUS.ServiceUnavailable,

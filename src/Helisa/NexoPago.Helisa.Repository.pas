@@ -33,15 +33,16 @@ type
 
   IHelisaPedidosRepository = interface
     ['{F3B5C6C1-4B0A-4C7A-8E6E-9B2E7D3F9A21}']
-    // AFechaLimiteHelisa: entero de fecha Helisa (ver NexoPago.Helisa.Utils.DateToHeDate),
-    // ya calculado por el Service - el Repository no conoce TDateTime de Helisa.
-    function ListarPedidosRecientes(const AFechaLimiteHelisa: Integer): TArray<THelisaPedidoResumenRow>;
+    // AFechaDesdeHelisa/AFechaHastaHelisa: enteros de fecha Helisa (ver
+    // NexoPago.Helisa.Utils.DateToHeDate), ya calculados por el Service - el
+    // Repository no conoce TDateTime de Helisa.
+    function ListarPedidosRecientes(const AFechaDesdeHelisa, AFechaHastaHelisa: Integer): TArray<THelisaPedidoResumenRow>;
     function ObtenerDetallePedido(const ANumeroPedido: String): TArray<THelisaPedidoDetalleLineaRow>;
   end;
 
   THelisaPedidosRepository = class(TInterfacedObject, IHelisaPedidosRepository)
   public
-    function ListarPedidosRecientes(const AFechaLimiteHelisa: Integer): TArray<THelisaPedidoResumenRow>;
+    function ListarPedidosRecientes(const AFechaDesdeHelisa, AFechaHastaHelisa: Integer): TArray<THelisaPedidoResumenRow>;
     function ObtenerDetallePedido(const ANumeroPedido: String): TArray<THelisaPedidoDetalleLineaRow>;
   end;
 
@@ -53,7 +54,7 @@ uses
   FireDAC.Stan.Param,
   NexoPago.Helisa.Connection;
 
-function THelisaPedidosRepository.ListarPedidosRecientes(const AFechaLimiteHelisa: Integer)
+function THelisaPedidosRepository.ListarPedidosRecientes(const AFechaDesdeHelisa, AFechaHastaHelisa: Integer)
   : TArray<THelisaPedidoResumenRow>;
 var
   LConn: TFDConnection;
@@ -71,9 +72,10 @@ begin
         LQuery.SQL.Text :=
           'SELECT DISTINCT P.DOCUMENTO, HEDATETOSTR(P.FECHA, ''YYYY/MM/DD'') AS FECHA_LARGA, P.FECHA AS FECHA_ORDEN ' +
           'FROM PEMAXXXX P ' +
-          'WHERE P.FECHA >= :fechaLimite ' +
+          'WHERE P.FECHA >= :fechaDesde AND P.FECHA <= :fechaHasta ' +
           'ORDER BY P.FECHA DESC';
-        LQuery.ParamByName('fechaLimite').AsInteger := AFechaLimiteHelisa;
+        LQuery.ParamByName('fechaDesde').AsInteger := AFechaDesdeHelisa;
+        LQuery.ParamByName('fechaHasta').AsInteger := AFechaHastaHelisa;
         LQuery.Open;
         while not LQuery.Eof do
         begin
