@@ -38,6 +38,8 @@ type
     // PRODUCTO_SINCRONIZACION. Si Helisa no esta disponible, levanta
     // EMVCException(ServiceUnavailable) con mensaje claro, nunca un 500 crudo.
     function SincronizarProductos(const AUsuarioID: Int64): TSincronizacionResumenDTO;
+    // Tarjeta KPI del listado: Total y fecha/hora de la ultima sincronizacion.
+    function GetResumen: TProductosResumenDTO;
   end;
 
 // Aqu� iremos declarando el resto de nuestras interfaces de servicios.
@@ -107,6 +109,7 @@ type
     function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TProductoDTO>;
     function SincronizarProductos(const AUsuarioID: Int64): TSincronizacionResumenDTO;
+    function GetResumen: TProductosResumenDTO;
   end;
 
 constructor THealthService.Create(ARepository: IHealthRepository);
@@ -574,6 +577,17 @@ begin
     Result.Free;
     raise;
   end;
+end;
+
+function TProductosService.GetResumen: TProductosResumenDTO;
+var
+  LRow: TProductosResumenRow;
+begin
+  LRow := fRepository.GetResumen;
+  Result := TProductosResumenDTO.Create;
+  Result.Total := LRow.Total;
+  if LRow.TieneUltimaSincronizacion then
+    Result.UltimaSincronizacion := LRow.UltimaSincronizacion;
 end;
 
 procedure RegisterServices(Container: IMVCServiceContainer);

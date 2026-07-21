@@ -96,6 +96,15 @@ type
     Activo: Boolean;
   end;
 
+  // TieneUltimaSincronizacion distingue "nunca se ha sincronizado" (tabla
+  // PRODUCTO_SINCRONIZACION vacia, MAX(FECHA_HORA_SINC) = NULL) de un 0/fecha
+  // por defecto silencioso.
+  TProductosResumenRow = record
+    Total: Int64;
+    UltimaSincronizacion: TDateTime;
+    TieneUltimaSincronizacion: Boolean;
+  end;
+
   IProductoRepository = interface(IMVCRepository<TProducto>)
     ['{19F0120A-2539-45C8-BD08-5AA673DEFCA7}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
@@ -103,12 +112,19 @@ type
     // DESCRIPCION o CODIGO_INTERNO (buscador de la pantalla de Productos).
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TProductoListRow>;
     function CountBySearch(const ASearch: String): Int64;
+    // Tarjeta KPI de Productos: total y fecha/hora de la ultima sincronizacion
+    // (MAX(PRODUCTO_SINCRONIZACION.FECHA_HORA_SINC) -- SincronizarProductos
+    // actualiza y registra TODOS los productos existentes en cada corrida, asi
+    // que este MAX si refleja "la ultima vez que se sincronizo", no solo "la
+    // ultima vez que algo cambio").
+    function GetResumen: TProductosResumenRow;
   end;
 
   TProductoRepository = class(TMVCRepository<TProducto>, IProductoRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TProductoListRow>;
     function CountBySearch(const ASearch: String): Int64;
+    function GetResumen: TProductosResumenRow;
   end;
 
   // Fila plana para el listado paginado de ordenes: cabecera + nombre del
@@ -675,6 +691,28 @@ begin
     end;
     LQuery.Open;
     Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TProductoRepository.GetResumen: TProductosResumenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT ' +
+      '  (SELECT COUNT(*) FROM PRODUCTO) AS TOTAL, ' +
+      '  (SELECT MAX(FECHA_HORA_SINC) FROM PRODUCTO_SINCRONIZACION) AS ULTIMA_SINC ' +
+      'FROM RDB$DATABASE';
+    LQuery.Open;
+    Result.Total := LQuery.FieldByName('TOTAL').AsLargeInt;
+    Result.TieneUltimaSincronizacion := not LQuery.FieldByName('ULTIMA_SINC').IsNull;
+    if Result.TieneUltimaSincronizacion then
+      Result.UltimaSincronizacion := LQuery.FieldByName('ULTIMA_SINC').AsDateTime;
   finally
     LQuery.Free;
   end;

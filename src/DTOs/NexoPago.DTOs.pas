@@ -501,6 +501,19 @@ type
     property MontoTotal: Currency read fMontoTotal write fMontoTotal;
   end;
 
+  // Tarjeta KPI de Productos: total del catalogo y fecha/hora de la ultima
+  // sincronizacion con Helisa. Nullable: nunca se ha sincronizado en una
+  // instalacion nueva.
+  [MVCNameCase(ncCamelCase)]
+  TProductosResumenDTO = class
+  private
+    fTotal: Int64;
+    fUltimaSincronizacion: NullableTDateTime;
+  public
+    property Total: Int64 read fTotal write fTotal;
+    property UltimaSincronizacion: NullableTDateTime read fUltimaSincronizacion write fUltimaSincronizacion;
+  end;
+
   [MVCNameCase(ncCamelCase)]
   TEntradasResumenDTO = class
   private

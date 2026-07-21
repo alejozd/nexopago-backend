@@ -39,6 +39,12 @@ type
     [MVCPath('/productos/sincronizar')]
     [MVCHTTPMethod([httpPOST])]
     function SincronizarProductos: TSincronizacionResumenDTO;
+
+    // Tarjeta KPI del listado: Total y fecha/hora de la ultima sincronizacion.
+    [MVCSwagSummary('Productos', 'Resumen de productos: total y ultima sincronizacion')]
+    [MVCPath('/productos/resumen')]
+    [MVCHTTPMethod([httpGET])]
+    function GetResumen: TProductosResumenDTO;
   end;
 
 implementation
@@ -61,6 +67,11 @@ end;
 function TProductosController.SincronizarProductos: TSincronizacionResumenDTO;
 begin
   Result := fProductosService.SincronizarProductos(GetCurrentUserID(Context));
+end;
+
+function TProductosController.GetResumen: TProductosResumenDTO;
+begin
+  Result := fProductosService.GetResumen;
 end;
 
 end.
