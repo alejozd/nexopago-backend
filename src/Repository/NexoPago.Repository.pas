@@ -1512,7 +1512,15 @@ begin
           '   OR (UPPER(U.NOMBRE) LIKE :search) ' +
           '   OR (UPPER(U.APELLIDO) LIKE :search) ' +
           '   OR (UPPER(U.NOMBRE || '' '' || U.APELLIDO) LIKE :search) ' +
-          '   OR (UPPER(CASE WHEN U.ACTIVO <> 0 THEN ''ACTIVO'' ELSE ''INACTIVO'' END) LIKE :search) ' +
+          // CAST explicito a VARCHAR(100): sin el CAST, Firebird infiere el
+          // tipo de :search en ESTA comparacion a partir de la rama mas corta
+          // del CASE ('INACTIVO', 8 caracteres), y cualquier busqueda de mas
+          // de 8 caracteres truncaba con "numeric overflow... expected
+          // length 8, actual N" (cada aparicion de :search en el mismo SQL
+          // infiere su tipo por separado segun el contexto donde se usa).
+          // 100 para igualar el ancho mas generoso ya usado en esta misma
+          // consulta (U.NOMBRE/U.APELLIDO, VARCHAR(100)).
+          '   OR (UPPER(CAST(CASE WHEN U.ACTIVO <> 0 THEN ''ACTIVO'' ELSE ''INACTIVO'' END AS VARCHAR(100))) LIKE :search) ' +
           '   OR U.USUARIO_ID IN (' +
           '        SELECT UP2.USUARIO_ID FROM USUARIO_PERFIL UP2 ' +
           '        INNER JOIN PERFIL P2 ON P2.PERFIL_ID = UP2.PERFIL_ID ' +
@@ -1569,7 +1577,9 @@ begin
         '   OR (UPPER(U.NOMBRE) LIKE :search) ' +
         '   OR (UPPER(U.APELLIDO) LIKE :search) ' +
         '   OR (UPPER(U.NOMBRE || '' '' || U.APELLIDO) LIKE :search) ' +
-        '   OR (UPPER(CASE WHEN U.ACTIVO <> 0 THEN ''ACTIVO'' ELSE ''INACTIVO'' END) LIKE :search) ' +
+        // Mismo CAST que en GetListado (ver ese comentario): sin el, esta
+        // comparacion truncaba :search a 8 caracteres.
+        '   OR (UPPER(CAST(CASE WHEN U.ACTIVO <> 0 THEN ''ACTIVO'' ELSE ''INACTIVO'' END AS VARCHAR(100))) LIKE :search) ' +
         '   OR U.USUARIO_ID IN (' +
         '        SELECT UP2.USUARIO_ID FROM USUARIO_PERFIL UP2 ' +
         '        INNER JOIN PERFIL P2 ON P2.PERFIL_ID = UP2.PERFIL_ID ' +
