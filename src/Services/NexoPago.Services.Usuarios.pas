@@ -21,6 +21,10 @@ type
     procedure ActualizarUsuario(const AObjetivoID: Int64; const ADatos: TUsuarioUpdateDTO; const AUsuarioID: Int64);
     // Soft delete via ACTIVO/ESTADO_REGISTRO, mismo patron que Proveedores.
     procedure CambiarEstado(const AObjetivoID: Int64; const AActivo: Boolean; const AUsuarioID: Int64);
+    // Resetea la contraseña de un usuario (accion de administrador, no
+    // autoservicio: no pide la contraseña actual). Misma validacion de longitud
+    // minima que ya aplica el frontend al CREAR un usuario (6 caracteres).
+    procedure CambiarPassword(const AObjetivoID: Int64; const ANuevaPassword: String; const AUsuarioID: Int64);
   end;
 
 procedure RegisterUsuariosServices(Container: IMVCServiceContainer);
@@ -52,6 +56,7 @@ type
     function CrearUsuario(const ADatos: TUsuarioCreateDTO; const AUsuarioID: Int64): Int64;
     procedure ActualizarUsuario(const AObjetivoID: Int64; const ADatos: TUsuarioUpdateDTO; const AUsuarioID: Int64);
     procedure CambiarEstado(const AObjetivoID: Int64; const AActivo: Boolean; const AUsuarioID: Int64);
+    procedure CambiarPassword(const AObjetivoID: Int64; const ANuevaPassword: String; const AUsuarioID: Int64);
   end;
 
 constructor TUsuariosService.Create(AUsuarioRepository: IUsuarioRepository);
@@ -262,6 +267,37 @@ begin
       raise EMVCException.Create(HTTP_STATUS.NotFound, 'Usuario no encontrado');
     try
       LUsuario.Activo := AActivo;
+      if AUsuarioID > 0 then
+        LUsuario.UsuarioModificoID := AUsuarioID;
+      LUsuario.FechaModificacion := Now;
+      fUsuarioRepository.Update(LUsuario);
+    finally
+      LUsuario.Free;
+    end;
+    LConn.Commit;
+  except
+    LConn.Rollback;
+    raise;
+  end;
+end;
+
+procedure TUsuariosService.CambiarPassword(const AObjetivoID: Int64; const ANuevaPassword: String;
+  const AUsuarioID: Int64);
+var
+  LConn: TFDConnection;
+  LUsuario: TUsuario;
+begin
+  if Trim(ANuevaPassword).Length < 6 then
+    raise EMVCException.Create(HTTP_STATUS.BadRequest, 'La contraseña debe tener al menos 6 caracteres');
+
+  LConn := TMVCActiveRecord.CurrentConnection;
+  LConn.StartTransaction;
+  try
+    LUsuario := fUsuarioRepository.GetByPK(AObjetivoID, False);
+    if LUsuario = nil then
+      raise EMVCException.Create(HTTP_STATUS.NotFound, 'Usuario no encontrado');
+    try
+      LUsuario.ContrasenaHash := HashPassword(ANuevaPassword);
       if AUsuarioID > 0 then
         LUsuario.UsuarioModificoID := AUsuarioID;
       LUsuario.FechaModificacion := Now;

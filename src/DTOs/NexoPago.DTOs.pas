@@ -587,6 +587,15 @@ type
     property PerfilIds: TArray<Int64> read fPerfilIds write fPerfilIds;
   end;
 
+  // Entrada de PUT /api/usuarios/(id)/password.
+  [MVCNameCase(ncCamelCase)]
+  TCambiarPasswordDTO = class
+  private
+    fPassword: String;
+  public
+    property Password: String read fPassword write fPassword;
+  end;
+
   // Respuesta de GET /api/usuarios/resumen: las "tarjetas" de 3.9.
   [MVCNameCase(ncCamelCase)]
   TUsuariosResumenDTO = class

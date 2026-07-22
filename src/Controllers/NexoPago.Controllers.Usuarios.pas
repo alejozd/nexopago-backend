@@ -56,6 +56,12 @@ type
     [MVCPath('/usuarios/($id)/estado')]
     [MVCHTTPMethod([httpPUT])]
     function CambiarEstado(const id: Int64; const [MVCFromQueryString('activo')] AActivo: Boolean): IMVCResponse;
+
+    [MVCSwagSummary('Usuarios', 'Resetea la contraseña de un usuario (accion de administrador)')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_EDITAR')]
+    [MVCPath('/usuarios/($id)/password')]
+    [MVCHTTPMethod([httpPUT])]
+    function CambiarPassword(const id: Int64; const [MVCFromBody] ADatos: TCambiarPasswordDTO): IMVCResponse;
   end;
 
 implementation
@@ -99,6 +105,12 @@ function TUsuariosController.CambiarEstado(const id: Int64; const AActivo: Boole
 begin
   fUsuariosService.CambiarEstado(id, AActivo, GetCurrentUserID(Context));
   Result := OKResponse('Estado del usuario actualizado correctamente');
+end;
+
+function TUsuariosController.CambiarPassword(const id: Int64; const ADatos: TCambiarPasswordDTO): IMVCResponse;
+begin
+  fUsuariosService.CambiarPassword(id, ADatos.Password, GetCurrentUserID(Context));
+  Result := OKResponse('Contraseña actualizada correctamente');
 end;
 
 end.
