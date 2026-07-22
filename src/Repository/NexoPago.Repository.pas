@@ -237,6 +237,13 @@ type
     MontoTotal: Currency;
   end;
 
+  // Resumen minimo (conteo + fecha del ultimo) de recibos ACTIVOS de una
+  // orden, para el timeline de Trazabilidad (ver GetResumenDeOrden).
+  TReciboResumenOrdenRow = record
+    Cantidad: Int64;
+    FechaUltima: TDate;
+  end;
+
   IRecibosRepository = interface(IMVCRepository<TReciboCajaChipis>)
     ['{2C83B391-95D4-4F8D-BBED-2EFECD61CCE0}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
@@ -250,6 +257,12 @@ type
     // como por Recibos (validacion al crear).
     function GetTotalPagado(const AOrdenID: Int64): Currency;
     function GetResumen: TRecibosResumenRow;
+    // Conteo + fecha del ultimo recibo ACTIVO de una orden (mismo filtro que
+    // GetTotalPagado, para que ambos sean consistentes: si solo hay recibos
+    // ANULADOS, aqui Cantidad = 0 igual que MontoPagado = 0). Usado por el
+    // timeline de Trazabilidad en el frontend (ver TOrdenesService.GetEstadoDocumentos),
+    // que solo necesita saber "hubo un recibo, cuando" sin el detalle de cada uno.
+    function GetResumenDeOrden(const AOrdenID: Int64): TReciboResumenOrdenRow;
   end;
 
   TRecibosRepository = class(TMVCRepository<TReciboCajaChipis>, IRecibosRepository)
@@ -258,6 +271,7 @@ type
     function CountBySearch(const ASearch: String): Int64;
     function GetTotalPagado(const AOrdenID: Int64): Currency;
     function GetResumen: TRecibosResumenRow;
+    function GetResumenDeOrden(const AOrdenID: Int64): TReciboResumenOrdenRow;
   end;
 
   // Fila plana para el listado de auditoria de entradas: cabecera + numero
@@ -284,6 +298,13 @@ type
     OrdenesAsociadas: Int64;
   end;
 
+  // Resumen minimo (conteo + fecha de la ultima) de entradas de mercancia de
+  // una orden, para el timeline de Trazabilidad (ver GetResumenDeOrden).
+  TEntradaResumenOrdenRow = record
+    Cantidad: Int64;
+    FechaUltima: TDate;
+  end;
+
   IEntradasMercanciaRepository = interface(IMVCRepository<TEntradaMercancia>)
     ['{72DE6C24-8744-40F2-A5F5-D5741CB0793A}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
@@ -304,6 +325,11 @@ type
     // decidir si la orden queda RECIBIDA o PARCIALMENTE_RECIBIDA (ver
     // TEntradasMercanciaService.RegistrarEntrada).
     function GetTotalCantidadRecibida(const AOrdenID: Int64): Currency;
+    // Conteo + fecha de la ultima entrada de mercancia de una orden. Usado
+    // por el timeline de Trazabilidad en el frontend (ver
+    // TOrdenesService.GetEstadoDocumentos), que solo necesita saber "hubo una
+    // entrada, cuando" sin el detalle de cada una.
+    function GetResumenDeOrden(const AOrdenID: Int64): TEntradaResumenOrdenRow;
   end;
 
   TEntradasMercanciaRepository = class(TMVCRepository<TEntradaMercancia>, IEntradasMercanciaRepository)
@@ -313,6 +339,7 @@ type
     function GetResumen: TEntradasResumenRow;
     function GetCantidadRecibida(const AOrdenDetalleID: Int64): Currency;
     function GetTotalCantidadRecibida(const AOrdenID: Int64): Currency;
+    function GetResumenDeOrden(const AOrdenID: Int64): TEntradaResumenOrdenRow;
   end;
 
   IModuloRepository = interface(IMVCRepository<TModulo>)
@@ -952,6 +979,29 @@ begin
   end;
 end;
 
+function TRecibosRepository.GetResumenDeOrden(const AOrdenID: Int64): TReciboResumenOrdenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT COUNT(*) AS CANTIDAD, MAX(FECHA_RECIBO) AS FECHA_ULTIMA ' +
+      'FROM RECIBO_CAJA_CHIPIS ' +
+      'WHERE ORDEN_ID = :ordenId AND ESTADO = ''ACTIVO''';
+    LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
+    LQuery.Open;
+    Result.Cantidad := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+    if LQuery.FieldByName('FECHA_ULTIMA').IsNull then
+      Result.FechaUltima := 0
+    else
+      Result.FechaUltima := LQuery.FieldByName('FECHA_ULTIMA').AsDateTime;
+  finally
+    LQuery.Free;
+  end;
+end;
+
 function TRecibosRepository.GetResumen: TRecibosResumenRow;
 var
   LQuery: TFDQuery;
@@ -1133,6 +1183,28 @@ begin
     LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
     LQuery.Open;
     Result := LQuery.FieldByName('CANTIDAD').AsCurrency;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TEntradasMercanciaRepository.GetResumenDeOrden(const AOrdenID: Int64): TEntradaResumenOrdenRow;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT COUNT(*) AS CANTIDAD, MAX(FECHA_ENTRADA) AS FECHA_ULTIMA ' +
+      'FROM ENTRADAS_MERCANCIA WHERE ORDEN_ID = :ordenId';
+    LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
+    LQuery.Open;
+    Result.Cantidad := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+    if LQuery.FieldByName('FECHA_ULTIMA').IsNull then
+      Result.FechaUltima := 0
+    else
+      Result.FechaUltima := LQuery.FieldByName('FECHA_ULTIMA').AsDateTime;
   finally
     LQuery.Free;
   end;

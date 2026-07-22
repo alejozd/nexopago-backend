@@ -24,6 +24,14 @@ type
     procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
     // Tarjetas KPI del listado: Pendientes (BORRADOR/PENDIENTE/PARCIALMENTE_RECIBIDA), Recibidas, Anuladas.
     function GetResumen: TOrdenesResumenDTO;
+    // Estado agregado (SOLO conteo + fecha del ultimo, NUNCA el detalle de cada
+    // documento) de Entradas y Recibos de una orden. Protegido unicamente por
+    // ORDENES_LEER (igual que GetByID, que ya expone MontoPagado y
+    // CantidadRecibida por linea sin pedir ENTRADAS_LEER/RECIBOS_LEER) --
+    // existe para que el timeline de Trazabilidad en el frontend pueda mostrar
+    // "hubo una entrada/recibo, cuando" sin exponer numero ERP/proveedor/tipo de
+    // pago de cada documento a un usuario sin el permiso fino de ese modulo.
+    function GetEstadoDocumentos(const AOrdenID: Int64): TOrdenEstadoDocumentosDTO;
   end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);
@@ -79,6 +87,7 @@ type
     procedure ActualizarOrden(const AOrdenID: Int64; const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64);
     procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
     function GetResumen: TOrdenesResumenDTO;
+    function GetEstadoDocumentos(const AOrdenID: Int64): TOrdenEstadoDocumentosDTO;
   end;
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
@@ -555,6 +564,31 @@ begin
   Result.Pendientes := LRow.Pendientes;
   Result.Recibidas := LRow.Recibidas;
   Result.Anuladas := LRow.Anuladas;
+end;
+
+function TOrdenesService.GetEstadoDocumentos(const AOrdenID: Int64): TOrdenEstadoDocumentosDTO;
+var
+  LOrden: TOrdenCompra;
+  LEntradas: TEntradaResumenOrdenRow;
+  LRecibos: TReciboResumenOrdenRow;
+begin
+  LOrden := fOrdenesRepository.GetByPK(AOrdenID, False);
+  if LOrden = nil then
+    raise EMVCException.Create(HTTP_STATUS.NotFound, 'Orden no encontrada');
+  LOrden.Free;
+
+  LEntradas := fEntradasMercanciaRepository.GetResumenDeOrden(AOrdenID);
+  LRecibos := fRecibosRepository.GetResumenDeOrden(AOrdenID);
+
+  Result := TOrdenEstadoDocumentosDTO.Create;
+  Result.TieneEntradas := LEntradas.Cantidad > 0;
+  Result.CantidadEntradas := LEntradas.Cantidad;
+  if Result.TieneEntradas then
+    Result.FechaUltimaEntrada := LEntradas.FechaUltima;
+  Result.TieneRecibos := LRecibos.Cantidad > 0;
+  Result.CantidadRecibos := LRecibos.Cantidad;
+  if Result.TieneRecibos then
+    Result.FechaUltimoRecibo := LRecibos.FechaUltima;
 end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);

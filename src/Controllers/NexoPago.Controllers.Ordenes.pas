@@ -51,6 +51,14 @@ type
     [MVCHTTPMethod([httpGET])]
     function GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
 
+    // Estado agregado (conteo/fecha) de entradas y recibos de una orden, sin
+    // exponer el detalle de cada documento (ver TOrdenesService.GetEstadoDocumentos).
+    [MVCSwagSummary('Ordenes', 'Estado agregado (conteo/fecha) de entradas y recibos de una orden, sin exponer el detalle de cada documento')]
+    [TMVCRequiresPermiso('CHIPIS', 'ORDENES_LEER')]
+    [MVCPath('/ordenes/($id)/estado-documentos')]
+    [MVCHTTPMethod([httpGET])]
+    function GetEstadoDocumentos(const id: Int64): TOrdenEstadoDocumentosDTO;
+
     // Cabecera + detalle en una unica transaccion FireDAC (ver
     // TOrdenesService.CrearOrden).
     [MVCSwagSummary('Ordenes', 'Crea una orden de compra con sus lineas de detalle')]
@@ -102,6 +110,11 @@ end;
 function TOrdenesController.GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
 begin
   Result := fOrdenesService.GetByID(id);
+end;
+
+function TOrdenesController.GetEstadoDocumentos(const id: Int64): TOrdenEstadoDocumentosDTO;
+begin
+  Result := fOrdenesService.GetEstadoDocumentos(id);
 end;
 
 function TOrdenesController.CreateOrden(const ADatos: TOrdenCompraCreateDTO): IMVCResponse;

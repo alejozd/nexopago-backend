@@ -520,6 +520,30 @@ type
     property Anuladas: Int64 read fAnuladas write fAnuladas;
   end;
 
+  // Respuesta de GET /api/ordenes/(id)/estado-documentos: estado AGREGADO
+  // (conteo + fecha del ultimo) de Entradas de Mercancia y Recibos de Caja
+  // de una orden. Protegida solo por ORDENES_LEER (igual criterio que
+  // MontoPagado/CantidadRecibida en TOrdenCompraFullDTO): expone que existio
+  // trazabilidad sin exponer el detalle de cada documento (numero ERP,
+  // proveedor, tipo de pago, etc.), que requiere ENTRADAS_LEER/RECIBOS_LEER.
+  [MVCNameCase(ncCamelCase)]
+  TOrdenEstadoDocumentosDTO = class
+  private
+    fTieneEntradas: Boolean;
+    fCantidadEntradas: Int64;
+    fFechaUltimaEntrada: NullableTDate;
+    fTieneRecibos: Boolean;
+    fCantidadRecibos: Int64;
+    fFechaUltimoRecibo: NullableTDate;
+  public
+    property TieneEntradas: Boolean read fTieneEntradas write fTieneEntradas;
+    property CantidadEntradas: Int64 read fCantidadEntradas write fCantidadEntradas;
+    property FechaUltimaEntrada: NullableTDate read fFechaUltimaEntrada write fFechaUltimaEntrada;
+    property TieneRecibos: Boolean read fTieneRecibos write fTieneRecibos;
+    property CantidadRecibos: Int64 read fCantidadRecibos write fCantidadRecibos;
+    property FechaUltimoRecibo: NullableTDate read fFechaUltimoRecibo write fFechaUltimoRecibo;
+  end;
+
   [MVCNameCase(ncCamelCase)]
   TRecibosResumenDTO = class
   private
