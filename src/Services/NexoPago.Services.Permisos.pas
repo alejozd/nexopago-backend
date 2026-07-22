@@ -255,8 +255,7 @@ begin
       LDTO.ModuloNombre := LRow.ModuloNombre;
       LDTO.Accion := LRow.Accion;
       LDTO.Asignado := LEstaAsignado;
-      if LRow.RequierePermisoID > 0 then
-        LDTO.RequierePermisoID := LRow.RequierePermisoID;
+      LDTO.RequierePermisoIds := LRow.RequierePermisoIds;
       Result.Add(LDTO);
     end;
   except

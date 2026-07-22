@@ -372,7 +372,9 @@ type
     ModuloNombre: String;
     Accion: String;
     Descripcion: String;
-    RequierePermisoID: Int64;
+    // Vacio si no tiene requisitos. Resuelto desde la tabla muchos-a-muchos
+    // PERMISO_REQUISITO (ver NexoPago.Repository.TPermisoRepository.GetListado).
+    RequierePermisoIds: TArray<Int64>;
   end;
 
   IPermisoRepository = interface(IMVCRepository<TPermiso>)
@@ -391,12 +393,14 @@ type
     function GetPermisosDeUsuario(const AUsuarioID: Int64): TArray<String>;
     // Dado un conjunto de PERMISO_ID que se van a asignar a un perfil, devuelve
     // el mismo conjunto MAS los REQUIERE_PERMISO_ID directos de cada uno (ver
-    // columna PERMISO.REQUIERE_PERMISO_ID). Un solo nivel de profundidad: ningun
-    // permiso "LEER" tiene a su vez un REQUIERE_PERMISO_ID, no hace falta
-    // resolver cadenas. Usado por TPermisosService.AsignarPermisos para que un
-    // perfil nunca quede con un permiso de escritura (ej. ORDENES_EDITAR) sin
-    // el LEER de la misma pantalla, que el frontend exige para poder llegar a
-    // la ruta (ver PermisoRoute en AppRouter.tsx).
+    // tabla muchos-a-muchos PERMISO_REQUISITO). Un solo nivel de profundidad:
+    // ningun permiso "LEER" tiene a su vez sus propios requisitos, no hace
+    // falta resolver cadenas. Usado por TPermisosService.AsignarPermisos para
+    // que un perfil nunca quede con un permiso de escritura (ej.
+    // ORDENES_EDITAR) sin el LEER de la misma pantalla, ni con un permiso que
+    // cruza de modulo (ej. ORDENES_CREAR) sin los LEER de los modulos de los
+    // que depende (PROVEEDORES_LEER, PRODUCTOS_LEER), que el frontend exige
+    // para poder llegar a la ruta (ver PermisoRoute en AppRouter.tsx).
     function ExpandirConRequeridos(const APermisoIds: TArray<Int64>): TArray<Int64>;
   end;
 
@@ -1553,6 +1557,10 @@ var
   LQuery: TFDQuery;
   LRows: TList<TPermisoListRow>;
   LRow: TPermisoListRow;
+  LMapaRequisitos: TObjectDictionary<Int64, TList<Int64>>;
+  LListaRequisitos: TList<Int64>;
+  I: Integer;
+  LID, LRequeridoID: Int64;
 begin
   LRows := TList<TPermisoListRow>.Create;
   try
@@ -1561,7 +1569,7 @@ begin
       LQuery.Connection := GetConnection;
       LQuery.SQL.Text :=
         'SELECT FIRST :flimit SKIP :foffset ' +
-        '  P.PERMISO_ID, P.MODULO_ID, M.NOMBRE AS MODULO_NOMBRE, P.ACCION, P.DESCRIPCION, P.REQUIERE_PERMISO_ID ' +
+        '  P.PERMISO_ID, P.MODULO_ID, M.NOMBRE AS MODULO_NOMBRE, P.ACCION, P.DESCRIPCION ' +
         'FROM PERMISO P ' +
         'INNER JOIN MODULO M ON M.MODULO_ID = P.MODULO_ID ' +
         'ORDER BY ' + ASortColumnSQL;
@@ -1575,15 +1583,50 @@ begin
         LRow.ModuloNombre := LQuery.FieldByName('MODULO_NOMBRE').AsString;
         LRow.Accion := LQuery.FieldByName('ACCION').AsString;
         LRow.Descripcion := LQuery.FieldByName('DESCRIPCION').AsString;
-        // AsLargeInt sobre un campo NULL devuelve 0, que es exactamente el
-        // sentinel que queremos (0 = sin dependencia); no hace falta IsNull.
-        LRow.RequierePermisoID := LQuery.FieldByName('REQUIERE_PERMISO_ID').AsLargeInt;
+        LRow.RequierePermisoIds := [];
         LRows.Add(LRow);
         LQuery.Next;
       end;
     finally
       LQuery.Free;
     end;
+
+    // Una sola consulta para toda la tabla PERMISO_REQUISITO (~24 filas en
+    // total): mas barato que una consulta por cada permiso del catalogo.
+    LMapaRequisitos := TObjectDictionary<Int64, TList<Int64>>.Create([doOwnsValues]);
+    try
+      LQuery := TFDQuery.Create(nil);
+      try
+        LQuery.Connection := GetConnection;
+        LQuery.SQL.Text := 'SELECT PERMISO_ID, REQUIERE_PERMISO_ID FROM PERMISO_REQUISITO';
+        LQuery.Open;
+        while not LQuery.Eof do
+        begin
+          LID := LQuery.FieldByName('PERMISO_ID').AsLargeInt;
+          LRequeridoID := LQuery.FieldByName('REQUIERE_PERMISO_ID').AsLargeInt;
+          if not LMapaRequisitos.TryGetValue(LID, LListaRequisitos) then
+          begin
+            LListaRequisitos := TList<Int64>.Create;
+            LMapaRequisitos.Add(LID, LListaRequisitos);
+          end;
+          LListaRequisitos.Add(LRequeridoID);
+          LQuery.Next;
+        end;
+      finally
+        LQuery.Free;
+      end;
+
+      for I := 0 to LRows.Count - 1 do
+      begin
+        LRow := LRows[I];
+        if LMapaRequisitos.TryGetValue(LRow.PermisoID, LListaRequisitos) then
+          LRow.RequierePermisoIds := LListaRequisitos.ToArray;
+        LRows[I] := LRow;
+      end;
+    finally
+      LMapaRequisitos.Free;
+    end;
+
     Result := LRows.ToArray;
   finally
     LRows.Free;
@@ -1651,22 +1694,27 @@ end;
 function TPermisoRepository.ExpandirConRequeridos(const APermisoIds: TArray<Int64>): TArray<Int64>;
 var
   LQuery: TFDQuery;
-  LMapaRequeridos: TDictionary<Int64, Int64>;
+  LMapaRequisitos: TObjectDictionary<Int64, TList<Int64>>;
   LResultado: TDictionary<Int64, Byte>; // usado como HashSet (el value no importa)
-  LID, LRequerido: Int64;
+  LID, LRequeridoID: Int64;
+  LLista: TList<Int64>;
 begin
-  LMapaRequeridos := TDictionary<Int64, Int64>.Create;
+  LMapaRequisitos := TObjectDictionary<Int64, TList<Int64>>.Create([doOwnsValues]);
   try
     LQuery := TFDQuery.Create(nil);
     try
       LQuery.Connection := GetConnection;
-      LQuery.SQL.Text := 'SELECT PERMISO_ID, REQUIERE_PERMISO_ID FROM PERMISO';
+      LQuery.SQL.Text := 'SELECT PERMISO_ID, REQUIERE_PERMISO_ID FROM PERMISO_REQUISITO';
       LQuery.Open;
       while not LQuery.Eof do
       begin
-        LMapaRequeridos.AddOrSetValue(
-          LQuery.FieldByName('PERMISO_ID').AsLargeInt,
-          LQuery.FieldByName('REQUIERE_PERMISO_ID').AsLargeInt);
+        LID := LQuery.FieldByName('PERMISO_ID').AsLargeInt;
+        if not LMapaRequisitos.TryGetValue(LID, LLista) then
+        begin
+          LLista := TList<Int64>.Create;
+          LMapaRequisitos.Add(LID, LLista);
+        end;
+        LLista.Add(LQuery.FieldByName('REQUIERE_PERMISO_ID').AsLargeInt);
         LQuery.Next;
       end;
     finally
@@ -1678,15 +1726,16 @@ begin
       for LID in APermisoIds do
       begin
         LResultado.AddOrSetValue(LID, 0);
-        if LMapaRequeridos.TryGetValue(LID, LRequerido) and (LRequerido > 0) then
-          LResultado.AddOrSetValue(LRequerido, 0);
+        if LMapaRequisitos.TryGetValue(LID, LLista) then
+          for LRequeridoID in LLista do
+            LResultado.AddOrSetValue(LRequeridoID, 0);
       end;
       Result := LResultado.Keys.ToArray;
     finally
       LResultado.Free;
     end;
   finally
-    LMapaRequeridos.Free;
+    LMapaRequisitos.Free;
   end;
 end;
 

@@ -662,16 +662,17 @@ type
     fModuloNombre: String;
     fAccion: String;
     fAsignado: Boolean;
-    fRequierePermisoID: NullableInt64;
+    fRequierePermisoIds: TArray<Int64>;
   public
     property PermisoID: Int64 read fPermisoID write fPermisoID;
     property ModuloNombre: String read fModuloNombre write fModuloNombre;
     property Accion: String read fAccion write fAccion;
     property Asignado: Boolean read fAsignado write fAsignado;
-    // Si tiene valor, este permiso solo tiene sentido si el perfil TAMBIEN
-    // tiene el permiso con este ID (tipicamente el LEER de la misma pantalla).
-    // El frontend lo usa para marcar/bloquear ese checkbox automaticamente.
-    property RequierePermisoID: NullableInt64 read fRequierePermisoID write fRequierePermisoID;
+    // Vacio si no tiene requisitos. Si tiene elementos, este permiso solo tiene
+    // sentido si el perfil TAMBIEN tiene TODOS esos permisos (mismo-pantalla o
+    // cruce de modulo, ver PERMISO_REQUISITO). El frontend los marca/bloquea
+    // automaticamente.
+    property RequierePermisoIds: TArray<Int64> read fRequierePermisoIds write fRequierePermisoIds;
   end;
 
   // Entrada de PUT /api/perfiles/(id)/permisos: reemplaza el conjunto
