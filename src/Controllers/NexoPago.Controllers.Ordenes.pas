@@ -57,6 +57,21 @@ type
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TOrdenPendienteRecepcionDTO>;
 
+    // Ordenes disponibles para aplicar un recibo (no ANULADA), listado
+    // angosto sin valorTotal (para Registrar Recibo de un perfil sin
+    // ORDENES_LEER). Debe declararse ANTES de GetOrdenByID (mismo motivo que
+    // GetResumen/GetPendientesRecepcion, ver comentario arriba):
+    // /ordenes/($id) capturaria "pendientes-pago" como id si se declara
+    // despues.
+    [MVCSwagSummary('Ordenes', 'Ordenes disponibles para aplicar un recibo (no ANULADA), listado angosto sin valorTotal')]
+    [TMVCRequiresPermiso('CHIPIS', 'RECIBOS_CREAR')]
+    [MVCPath('/ordenes/pendientes-pago')]
+    [MVCHTTPMethod([httpGET])]
+    function GetPendientesPago(
+      const [MVCFromQueryString('page', 1)] APage: Integer;
+      const [MVCFromQueryString('rows', 20)] ARows: Integer;
+      const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TOrdenPendientePagoDTO>;
+
     // Detalle completo: cabecera + lineas, cada una con su SUBTOTAL real
     // (COMPUTED BY en Firebird).
     [MVCSwagSummary('Ordenes', 'Detalle de una orden de compra (cabecera + lineas)')]
@@ -73,6 +88,15 @@ type
     [MVCPath('/ordenes/($id)/detalle-recepcion')]
     [MVCHTTPMethod([httpGET])]
     function GetDetalleRecepcion(const id: Int64): TOrdenRecepcionDTO;
+
+    // Saldo de una orden para Registrar Recibo: valorTotal/montoPagado/
+    // saldoPendiente, sin lineas ni proveedor. Protegido por RECIBOS_CREAR
+    // (NO ORDENES_LEER). 3 segmentos, no colisiona.
+    [MVCSwagSummary('Ordenes', 'Saldo de una orden (valorTotal/montoPagado/saldoPendiente) para Registrar Recibo')]
+    [TMVCRequiresPermiso('CHIPIS', 'RECIBOS_CREAR')]
+    [MVCPath('/ordenes/($id)/detalle-saldo')]
+    [MVCHTTPMethod([httpGET])]
+    function GetSaldoOrden(const id: Int64): TOrdenSaldoDTO;
 
     // Estado agregado (conteo/fecha) de entradas y recibos de una orden, sin
     // exponer el detalle de cada documento (ver TOrdenesService.GetEstadoDocumentos).
@@ -144,6 +168,17 @@ end;
 function TOrdenesController.GetDetalleRecepcion(const id: Int64): TOrdenRecepcionDTO;
 begin
   Result := fOrdenesService.GetDetalleRecepcion(id);
+end;
+
+function TOrdenesController.GetPendientesPago(const APage, ARows: Integer;
+  const ASearch: String): TPagedResultDTO<TOrdenPendientePagoDTO>;
+begin
+  Result := fOrdenesService.GetPendientesPago(APage, ARows, ASearch);
+end;
+
+function TOrdenesController.GetSaldoOrden(const id: Int64): TOrdenSaldoDTO;
+begin
+  Result := fOrdenesService.GetSaldoOrden(id);
 end;
 
 function TOrdenesController.GetEstadoDocumentos(const id: Int64): TOrdenEstadoDocumentosDTO;

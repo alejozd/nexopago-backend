@@ -40,6 +40,14 @@ type
     // Detalle angosto (solo numeroOrden + lineas con saldo pendiente) de una
     // orden, para el mismo flujo de Registrar Entrada.
     function GetDetalleRecepcion(const AOrdenID: Int64): TOrdenRecepcionDTO;
+    // Listado angosto (sin ValorTotal) de ordenes disponibles para aplicarles
+    // un recibo de caja (cualquier estado excepto ANULADA), para el flujo de
+    // Registrar Recibo de un perfil que NO tiene ORDENES_LEER (ver
+    // NexoPago.Controllers.Ordenes.GetPendientesPago).
+    function GetPendientesPago(const APage, ARows: Integer; const ASearch: String): TPagedResultDTO<TOrdenPendientePagoDTO>;
+    // Saldo (valorTotal/montoPagado/saldoPendiente) de una orden, para el
+    // mismo flujo de Registrar Recibo.
+    function GetSaldoOrden(const AOrdenID: Int64): TOrdenSaldoDTO;
   end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);
@@ -98,6 +106,8 @@ type
     function GetEstadoDocumentos(const AOrdenID: Int64): TOrdenEstadoDocumentosDTO;
     function GetPendientesRecepcion(const APage, ARows: Integer; const ASearch: String): TPagedResultDTO<TOrdenPendienteRecepcionDTO>;
     function GetDetalleRecepcion(const AOrdenID: Int64): TOrdenRecepcionDTO;
+    function GetPendientesPago(const APage, ARows: Integer; const ASearch: String): TPagedResultDTO<TOrdenPendientePagoDTO>;
+    function GetSaldoOrden(const AOrdenID: Int64): TOrdenSaldoDTO;
   end;
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
@@ -677,6 +687,59 @@ begin
   finally
     LOrden.Free;
   end;
+end;
+
+function TOrdenesService.GetPendientesPago(const APage, ARows: Integer;
+  const ASearch: String): TPagedResultDTO<TOrdenPendientePagoDTO>;
+var
+  LRows: TArray<TOrdenCompraListRow>;
+  LRow: TOrdenCompraListRow;
+  LDTO: TOrdenPendientePagoDTO;
+  LOffset, LLimit: Integer;
+  LSearch: String;
+begin
+  LLimit := Max(ARows, 1);
+  LOffset := (Max(APage, 1) - 1) * LLimit;
+  LSearch := UpperCase(Trim(ASearch));
+  if LSearch <> '' then
+    LSearch := '%' + LSearch + '%';
+
+  Result := TPagedResultDTO<TOrdenPendientePagoDTO>.Create;
+  try
+    Result.TotalRecords := fOrdenesRepository.CountPendientesPago(LSearch);
+
+    LRows := fOrdenesRepository.GetListadoPendientesPago(LOffset, LLimit, LSearch);
+    for LRow in LRows do
+    begin
+      LDTO := TOrdenPendientePagoDTO.Create;
+      LDTO.ID := LRow.OrdenID;
+      LDTO.NumeroOrden := LRow.NumeroOrden;
+      LDTO.ProveedorNombre := LRow.ProveedorNombre;
+      LDTO.FechaOrden := LRow.FechaOrden;
+      LDTO.Estado := LRow.Estado;
+      // NOTA: LRow.ValorTotal NO se copia al DTO: este listado nunca expone
+      // montos a un perfil con solo RECIBOS_CREAR.
+      Result.Data.Add(LDTO);
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+function TOrdenesService.GetSaldoOrden(const AOrdenID: Int64): TOrdenSaldoDTO;
+var
+  LOrden: TOrdenCompra;
+begin
+  LOrden := fOrdenesRepository.GetByPK(AOrdenID, False);
+  if LOrden = nil then
+    raise EMVCException.Create(HTTP_STATUS.NotFound, 'Orden no encontrada');
+  LOrden.Free;
+
+  Result := TOrdenSaldoDTO.Create;
+  Result.ValorTotal := fOrdenesRepository.GetValorTotal(AOrdenID);
+  Result.MontoPagado := fRecibosRepository.GetTotalPagado(AOrdenID);
+  Result.SaldoPendiente := Result.ValorTotal - Result.MontoPagado;
 end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);

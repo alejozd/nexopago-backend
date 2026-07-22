@@ -304,6 +304,42 @@ type
     property Estado: String read fEstado write fEstado;
   end;
 
+  // Fila angosta para elegir una orden a la que aplicar un recibo de caja, SIN
+  // valorTotal ni otros datos financieros de la orden (eso lo trae el endpoint
+  // de detalle-saldo, una vez elegida). Endpoint: GET /ordenes/pendientes-pago,
+  // protegido por CHIPIS:RECIBOS_CREAR (NO ORDENES_LEER).
+  [MVCNameCase(ncCamelCase)]
+  TOrdenPendientePagoDTO = class
+  private
+    fID: Int64;
+    fNumeroOrden: String;
+    fProveedorNombre: String;
+    fFechaOrden: TDate;
+    fEstado: String;
+  public
+    property ID: Int64 read fID write fID;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property FechaOrden: TDate read fFechaOrden write fFechaOrden;
+    property Estado: String read fEstado write fEstado;
+  end;
+
+  // Respuesta de GET /ordenes/(id)/detalle-saldo: SOLO los 3 valores que
+  // ReciboFormDialog.tsx necesita para calcular Saldo Antes/Despues. Nada de
+  // lineas de producto ni proveedor -- ver TOrdenCompraFullDTO para el
+  // contraste (ese SI expone todo, pero exige ORDENES_LEER).
+  [MVCNameCase(ncCamelCase)]
+  TOrdenSaldoDTO = class
+  private
+    fValorTotal: Currency;
+    fMontoPagado: Currency;
+    fSaldoPendiente: Currency;
+  public
+    property ValorTotal: Currency read fValorTotal write fValorTotal;
+    property MontoPagado: Currency read fMontoPagado write fMontoPagado;
+    property SaldoPendiente: Currency read fSaldoPendiente write fSaldoPendiente;
+  end;
+
   // Linea de detalle SOLO con lo necesario para el formulario de Registrar
   // Entrada (producto + saldo pendiente). Nada de precios/subtotales.
   [MVCNameCase(ncCamelCase)]

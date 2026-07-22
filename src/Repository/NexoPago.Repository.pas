@@ -211,6 +211,16 @@ type
     // por el cliente, para que esta via no pueda listar otras ordenes.
     function GetListadoPendientesRecepcion(const AOffset, ALimit: Integer; const ASearch: String): TArray<TOrdenCompraListRow>;
     function CountPendientesRecepcion(const ASearch: String): Int64;
+    // Ordenes disponibles para aplicarles un recibo de caja: cualquier estado
+    // EXCEPTO ANULADA (mismo criterio que ya filtraba el frontend en
+    // ReciboFormDialog.tsx: `.filter(o => o.estado !== 'ANULADA')`, ahora
+    // aplicado en el servidor). SIN exponer ValorTotal a quien solo tiene
+    // RECIBOS_CREAR.
+    function GetListadoPendientesPago(const AOffset, ALimit: Integer; const ASearch: String): TArray<TOrdenCompraListRow>;
+    function CountPendientesPago(const ASearch: String): Int64;
+    // SUM(ORDEN_COMPRA_DETALLE.SUBTOTAL) de una orden, sin cargar la orden
+    // completa ni sus lineas en memoria -- usado por TOrdenSaldoDTO.
+    function GetValorTotal(const AOrdenID: Int64): Currency;
   end;
 
   TOrdenesRepository = class(TMVCRepository<TOrdenCompra>, IOrdenesRepository)
@@ -222,6 +232,9 @@ type
       const AOrdenIDExcluir: Int64 = 0): TArray<TConsumoPedidoLineaRow>;
     function GetListadoPendientesRecepcion(const AOffset, ALimit: Integer; const ASearch: String): TArray<TOrdenCompraListRow>;
     function CountPendientesRecepcion(const ASearch: String): Int64;
+    function GetListadoPendientesPago(const AOffset, ALimit: Integer; const ASearch: String): TArray<TOrdenCompraListRow>;
+    function CountPendientesPago(const ASearch: String): Int64;
+    function GetValorTotal(const AOrdenID: Int64): Currency;
   end;
 
   // Fila plana para el listado paginado de recibos: cabecera + numero de
@@ -875,6 +888,128 @@ begin
     end;
     LQuery.Open;
     Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TOrdenesRepository.GetListadoPendientesPago(const AOffset, ALimit: Integer;
+  const ASearch: String): TArray<TOrdenCompraListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TOrdenCompraListRow>;
+  LRow: TOrdenCompraListRow;
+begin
+  LRows := TList<TOrdenCompraListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection;
+      // Mismo SQL que GetListado, con el WHERE de estado FIJO (no viene del
+      // cliente): cualquier estado excepto ANULADA, para que un perfil con
+      // solo RECIBOS_CREAR pueda elegir la orden a la que aplicar el recibo
+      // sin poder listar ordenes anuladas por esta via.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
+          '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
+          '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
+          'FROM ORDEN_COMPRA OC ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
+          'WHERE OC.ESTADO <> ''ANULADA'' ' +
+          'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
+          'ORDER BY OC.FECHA_ORDEN DESC'
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
+          '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
+          '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
+          'FROM ORDEN_COMPRA OC ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
+          'WHERE OC.ESTADO <> ''ANULADA'' ' +
+          '  AND ((UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+          '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+          '   OR (UPPER(COALESCE(OC.PROYECTO, '''')) LIKE :search) ' +
+          '   OR (UPPER(COALESCE(OC.SOLICITUD, '''')) LIKE :search)) ' +
+          'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
+          'ORDER BY OC.FECHA_ORDEN DESC';
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.OrdenID := LQuery.FieldByName('ORDEN_ID').AsLargeInt;
+        LRow.NumeroOrden := LQuery.FieldByName('NUMERO_ORDEN').AsString;
+        LRow.FechaOrden := LQuery.FieldByName('FECHA_ORDEN').AsDateTime;
+        LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
+        LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+        LRow.ValorTotal := LQuery.FieldByName('VALOR_TOTAL').AsCurrency;
+        LRow.Proyecto := LQuery.FieldByName('PROYECTO').AsString;
+        LRow.Solicitud := LQuery.FieldByName('SOLICITUD').AsString;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TOrdenesRepository.CountPendientesPago(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ORDEN_COMPRA OC ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'WHERE OC.ESTADO <> ''ANULADA'''
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ORDEN_COMPRA OC ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'WHERE OC.ESTADO <> ''ANULADA'' ' +
+        '  AND ((UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+        '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+        '   OR (UPPER(COALESCE(OC.PROYECTO, '''')) LIKE :search) ' +
+        '   OR (UPPER(COALESCE(OC.SOLICITUD, '''')) LIKE :search))';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TOrdenesRepository.GetValorTotal(const AOrdenID: Int64): Currency;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    LQuery.SQL.Text :=
+      'SELECT COALESCE(SUM(SUBTOTAL), 0) AS VALOR_TOTAL ' +
+      'FROM ORDEN_COMPRA_DETALLE WHERE ORDEN_ID = :ordenId';
+    LQuery.ParamByName('ordenId').AsLargeInt := AOrdenID;
+    LQuery.Open;
+    Result := LQuery.FieldByName('VALOR_TOTAL').AsCurrency;
   finally
     LQuery.Free;
   end;
