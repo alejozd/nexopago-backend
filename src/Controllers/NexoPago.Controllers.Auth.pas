@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services.Auth,
+  NexoPago.Repository,
   NexoPago.DTOs;
 
 type
@@ -14,9 +15,10 @@ type
   TAuthController = class(TMVCController)
   private
     fRegistroService: IRegistroService;
+    fPermisoRepository: IPermisoRepository;
   public
     [MVCInject]
-    constructor Create(ARegistroService: IRegistroService); reintroduce;
+    constructor Create(ARegistroService: IRegistroService; APermisoRepository: IPermisoRepository); reintroduce;
 
     // TEMPORAL: crea el primer usuario de prueba mientras no existe una
     // pantalla de administracion. Sin proteccion JWT (OnRequest no lo exige).
@@ -42,10 +44,11 @@ implementation
 uses
   System.SysUtils;
 
-constructor TAuthController.Create(ARegistroService: IRegistroService);
+constructor TAuthController.Create(ARegistroService: IRegistroService; APermisoRepository: IPermisoRepository);
 begin
   inherited Create;
   fRegistroService := ARegistroService;
+  fPermisoRepository := APermisoRepository;
 end;
 
 function TAuthController.Register(const ADatos: TUsuarioRegistroDTO): IMVCResponse;
@@ -70,6 +73,8 @@ begin
     if Context.LoggedUser.CustomData.TryGetValue('apellido', LValue) then
       Result.Apellido := LValue;
   end;
+  if Result.ID > 0 then
+    Result.Permisos := fPermisoRepository.GetPermisosDeUsuario(Result.ID);
 end;
 
 end.

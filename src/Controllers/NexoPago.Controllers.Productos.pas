@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -24,6 +25,7 @@ type
     // search filtra por descripcion o codigo interno (buscador de la
     // pantalla de Productos).
     [MVCSwagSummary('Productos', 'Listado paginado de productos (catalogo de solo lectura)')]
+    [TMVCRequiresPermiso('CHIPIS', 'PRODUCTOS_LEER')]
     [MVCPath('/productos')]
     [MVCHTTPMethod([httpGET])]
     function GetProductos(
@@ -36,12 +38,14 @@ type
     // Lee INMAXXXX de Helisa (solo lectura) y actualiza el catalogo propio
     // PRODUCTO. Devuelve un resumen (leidos/nuevos/actualizados).
     [MVCSwagSummary('Productos', 'Sincroniza el catalogo de productos desde Helisa')]
+    [TMVCRequiresPermiso('CHIPIS', 'PRODUCTOS_SINCRONIZAR')]
     [MVCPath('/productos/sincronizar')]
     [MVCHTTPMethod([httpPOST])]
     function SincronizarProductos: TSincronizacionResumenDTO;
 
     // Tarjeta KPI del listado: Total y fecha/hora de la ultima sincronizacion.
     [MVCSwagSummary('Productos', 'Resumen de productos: total y ultima sincronizacion')]
+    [TMVCRequiresPermiso('CHIPIS', 'PRODUCTOS_LEER')]
     [MVCPath('/productos/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TProductosResumenDTO;

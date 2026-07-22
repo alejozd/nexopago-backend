@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services.Usuarios,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -21,6 +22,7 @@ type
     // Listado paginado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N }.
     [MVCSwagSummary('Usuarios', 'Listado paginado de usuarios')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_LEER')]
     [MVCPath('/usuarios')]
     [MVCHTTPMethod([httpGET])]
     function GetUsuarios(
@@ -32,21 +34,25 @@ type
 
     // Tarjetas de 3.9: Total, Activos, Roles.
     [MVCSwagSummary('Usuarios', 'Resumen de usuarios: total, activos y roles')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_LEER')]
     [MVCPath('/usuarios/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TUsuariosResumenDTO;
 
     [MVCSwagSummary('Usuarios', 'Crea un usuario con sus perfiles asignados')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_CREAR')]
     [MVCPath('/usuarios')]
     [MVCHTTPMethod([httpPOST])]
     function CreateUsuario(const [MVCFromBody] ADatos: TUsuarioCreateDTO): IMVCResponse;
 
     [MVCSwagSummary('Usuarios', 'Actualiza datos basicos y perfiles de un usuario')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_EDITAR')]
     [MVCPath('/usuarios/($id)')]
     [MVCHTTPMethod([httpPUT])]
     function UpdateUsuario(const id: Int64; const [MVCFromBody] ADatos: TUsuarioUpdateDTO): IMVCResponse;
 
     [MVCSwagSummary('Usuarios', 'Activa o inactiva un usuario')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_ESTADO')]
     [MVCPath('/usuarios/($id)/estado')]
     [MVCHTTPMethod([httpPUT])]
     function CambiarEstado(const id: Int64; const [MVCFromQueryString('activo')] AActivo: Boolean): IMVCResponse;

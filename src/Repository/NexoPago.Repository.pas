@@ -351,16 +351,23 @@ type
     ['{64923C9F-57E0-4824-886A-34CBCC9005A4}']
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TPermisoListRow>;
     // Mecanismo reutilizable de verificacion de permisos (EXISTS via join
-    // PERFIL_PERMISO -> USUARIO_PERFIL -> PERMISO -> MODULO). Usado hoy solo
-    // por TEmpresaService.CambiarEmpresaActiva; OnAuthorization sigue siendo
-    // un stub (fuera de alcance, ver NexoPago.Services.Auth).
+    // PERFIL_PERMISO -> USUARIO_PERFIL -> PERMISO -> MODULO). Usado por
+    // TEmpresaService.CambiarEmpresaActiva y por
+    // TNexoPagoAuthHandler.OnAuthorization (ver NexoPago.Services.Auth) para
+    // resolver [TMVCRequiresPermiso(modulo, accion)] via RTTI.
     function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
+    // Mismo join que UsuarioTienePermiso pero sin filtrar por modulo/accion:
+    // todos los permisos concedidos al usuario (via sus perfiles), como
+    // 'MODULO:ACCION'. Usado por GET /api/auth/me para que el frontend sepa
+    // que puede mostrar sin depender solo de roles.
+    function GetPermisosDeUsuario(const AUsuarioID: Int64): TArray<String>;
   end;
 
   TPermisoRepository = class(TMVCRepository<TPermiso>, IPermisoRepository)
   public
     function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TPermisoListRow>;
     function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
+    function GetPermisosDeUsuario(const AUsuarioID: Int64): TArray<String>;
   end;
 
   // Fila plana de EMPRESA_ACTIVA_HISTORIAL: cambio + nombre de quien lo hizo,
@@ -496,6 +503,7 @@ type
 implementation
 
 uses
+  System.SysUtils,
   Data.DB,
   System.Generics.Collections,
   FireDAC.Comp.Client,
@@ -1517,6 +1525,40 @@ begin
     Result := not LQuery.IsEmpty;
   finally
     LQuery.Free;
+  end;
+end;
+
+function TPermisoRepository.GetPermisosDeUsuario(const AUsuarioID: Int64): TArray<String>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<String>;
+begin
+  LRows := TList<String>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
+      LQuery.SQL.Text :=
+        'SELECT DISTINCT M.NOMBRE AS MODULO_NOMBRE, P.ACCION ' +
+        'FROM PERFIL_PERMISO PP ' +
+        'JOIN USUARIO_PERFIL UP ON UP.PERFIL_ID = PP.PERFIL_ID ' +
+        'JOIN PERMISO P ON P.PERMISO_ID = PP.PERMISO_ID ' +
+        'JOIN MODULO M ON M.MODULO_ID = P.MODULO_ID ' +
+        'WHERE UP.USUARIO_ID = :usuarioId';
+      LQuery.ParamByName('usuarioId').AsLargeInt := AUsuarioID;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRows.Add(Trim(LQuery.FieldByName('MODULO_NOMBRE').AsString) + ':' +
+          Trim(LQuery.FieldByName('ACCION').AsString));
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
   end;
 end;
 

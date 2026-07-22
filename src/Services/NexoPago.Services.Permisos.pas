@@ -22,6 +22,11 @@ type
     // Reemplaza el conjunto completo de permisos del perfil, en una
     // transaccion FireDAC explicita.
     procedure AsignarPermisos(const APerfilID: Int64; const ADatos: TAsignarPermisosDTO);
+    // Crea un perfil (rol) nuevo. Devuelve el PERFIL_ID recien creado.
+    function CrearPerfil(const ADatos: TPerfilCreateDTO; const AUsuarioID: Int64): Int64;
+    // Actualiza nombre/descripcion de un perfil existente. La asignacion de
+    // permisos del perfil sigue siendo responsabilidad de AsignarPermisos.
+    procedure ActualizarPerfil(const APerfilID: Int64; const ADatos: TPerfilCreateDTO; const AUsuarioID: Int64);
     // Mecanismo reutilizable de verificacion de permisos, punto de entrada
     // para servicios de otros modulos (hoy: TEmpresaService.CambiarEmpresaActiva).
     function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
@@ -62,6 +67,8 @@ type
       const ASortOrder: Integer): TPagedResultDTO<TPermisoDTO>;
     function GetMatriz(const APerfilID: Int64): TObjectList<TPermisoMatrizItemDTO>;
     procedure AsignarPermisos(const APerfilID: Int64; const ADatos: TAsignarPermisosDTO);
+    function CrearPerfil(const ADatos: TPerfilCreateDTO; const AUsuarioID: Int64): Int64;
+    procedure ActualizarPerfil(const APerfilID: Int64; const ADatos: TPerfilCreateDTO; const AUsuarioID: Int64);
     function UsuarioTienePermiso(const AUsuarioID: Int64; const AModuloNombre, AAccion: String): Boolean;
   end;
 
@@ -271,6 +278,70 @@ begin
   except
     LConn.Rollback;
     raise;
+  end;
+end;
+
+function TPermisosService.CrearPerfil(const ADatos: TPerfilCreateDTO; const AUsuarioID: Int64): Int64;
+var
+  LExisting, LPerfil: TPerfil;
+begin
+  if Trim(ADatos.Nombre) = '' then
+    raise EMVCException.Create(HTTP_STATUS.BadRequest, 'nombre es requerido');
+
+  // GetFirstByWhere parametrizado (?, no RQL concatenado) - mismo patron que
+  // TRegistroService.RegistrarUsuario. El UNIQUE(NOMBRE) de la BD es la
+  // segunda linea de defensa, no la primera.
+  LExisting := fPerfilRepository.GetFirstByWhere('NOMBRE = ?', [ADatos.Nombre], False);
+  if LExisting <> nil then
+  begin
+    LExisting.Free;
+    raise EMVCException.Create(HTTP_STATUS.Conflict, 'El nombre del perfil ya existe');
+  end;
+
+  LPerfil := TPerfil.Create;
+  try
+    LPerfil.Nombre := ADatos.Nombre;
+    LPerfil.Descripcion := ADatos.Descripcion;
+    LPerfil.EstadoRegistro := 'A';
+    if AUsuarioID > 0 then
+      LPerfil.UsuarioCreoID := AUsuarioID;
+    fPerfilRepository.Insert(LPerfil);
+    Result := LPerfil.ID.ValueOrDefault;
+  finally
+    LPerfil.Free;
+  end;
+end;
+
+procedure TPermisosService.ActualizarPerfil(const APerfilID: Int64; const ADatos: TPerfilCreateDTO;
+  const AUsuarioID: Int64);
+var
+  LExisting, LPerfil: TPerfil;
+begin
+  if not fPerfilRepository.Exists(APerfilID) then
+    raise EMVCException.Create(HTTP_STATUS.NotFound, 'Perfil no encontrado');
+
+  if Trim(ADatos.Nombre) = '' then
+    raise EMVCException.Create(HTTP_STATUS.BadRequest, 'nombre es requerido');
+
+  // Excluye el propio ID de la validacion de duplicados: de lo contrario un
+  // perfil nunca podria "actualizarse" conservando su mismo nombre.
+  LExisting := fPerfilRepository.GetFirstByWhere('NOMBRE = ? AND PERFIL_ID <> ?', [ADatos.Nombre, APerfilID], False);
+  if LExisting <> nil then
+  begin
+    LExisting.Free;
+    raise EMVCException.Create(HTTP_STATUS.Conflict, 'El nombre del perfil ya existe');
+  end;
+
+  LPerfil := fPerfilRepository.GetByPK(APerfilID, False);
+  try
+    LPerfil.Nombre := ADatos.Nombre;
+    LPerfil.Descripcion := ADatos.Descripcion;
+    if AUsuarioID > 0 then
+      LPerfil.UsuarioModificoID := AUsuarioID;
+    LPerfil.FechaModificacion := Now;
+    fPerfilRepository.Update(LPerfil);
+  finally
+    LPerfil.Free;
   end;
 end;
 

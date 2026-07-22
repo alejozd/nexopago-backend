@@ -120,7 +120,7 @@ begin
   // siempre es el default de TJWT (HS512), sin importar lo que se configure
   // aqui. Se omite el parametro para no sugerir un control que no existe.
   fMVC.AddMiddleware(TMVCJWTAuthenticationMiddleware.Create(
-    TNexoPagoAuthHandler.Create(TUsuarioRepository.Create),
+    TNexoPagoAuthHandler.Create(TUsuarioRepository.Create, TPermisoRepository.Create),
     LClaimsSetup,
     dotEnv.Env('JWT_SECRET', ''), // '' nunca se usa: dotEnv.RequireKeys revienta el arranque si falta
     '/api/auth/login',

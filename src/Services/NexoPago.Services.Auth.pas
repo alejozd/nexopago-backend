@@ -16,8 +16,9 @@ type
   TNexoPagoAuthHandler = class(TInterfacedObject, IMVCAuthenticationHandler)
   private
     fUsuarioRepository: IUsuarioRepository;
+    fPermisoRepository: IPermisoRepository;
   public
-    constructor Create(AUsuarioRepository: IUsuarioRepository);
+    constructor Create(AUsuarioRepository: IUsuarioRepository; APermisoRepository: IPermisoRepository);
     procedure OnRequest(const AContext: TWebContext; const AControllerQualifiedClassName,
       AActionName: string; var AAuthenticationRequired: Boolean);
     procedure OnAuthentication(const AContext: TWebContext; const AUserName, APassword: string;
@@ -37,16 +38,20 @@ implementation
 
 uses
   System.SysUtils,
+  System.Rtti,
   MVCFramework.Commons,
   NexoPago.Entities,
-  NexoPago.Security.Password;
+  NexoPago.Security.Password,
+  NexoPago.Security.CurrentUser,
+  NexoPago.Security.PermisoAttribute;
 
 { TNexoPagoAuthHandler }
 
-constructor TNexoPagoAuthHandler.Create(AUsuarioRepository: IUsuarioRepository);
+constructor TNexoPagoAuthHandler.Create(AUsuarioRepository: IUsuarioRepository; APermisoRepository: IPermisoRepository);
 begin
   inherited Create;
   fUsuarioRepository := AUsuarioRepository;
+  fPermisoRepository := APermisoRepository;
 end;
 
 procedure TNexoPagoAuthHandler.OnRequest(const AContext: TWebContext;
@@ -103,11 +108,50 @@ end;
 
 procedure TNexoPagoAuthHandler.OnAuthorization(const AContext: TWebContext; AUserRoles: TList<string>;
   const AControllerQualifiedClassName: string; const AActionName: string; var AIsAuthorized: Boolean);
+var
+  LCtx: TRttiContext;
+  LType: TRttiType;
+  LMethod: TRttiMethod;
+  LAttr: TCustomAttribute;
+  LPermisoAttr: TMVCRequiresPermisoAttribute;
+  LUsuarioID: Int64;
 begin
-  // Autorizacion minima: cualquier usuario autenticado accede a lo que
-  // OnRequest marco como protegido. El control fino por rol/permiso llega
-  // con el modulo de Permisos.
-  AIsAuthorized := True;
+  // Autorizacion granular: si la accion tiene [TMVCRequiresPermiso(modulo,
+  // accion)], se exige ese permiso via IPermisoRepository.UsuarioTienePermiso
+  // (mismo mecanismo que ya usaba TEmpresaService.CambiarEmpresaActiva). Si
+  // no tiene el atributo, se mantiene el comportamiento anterior: cualquier
+  // usuario autenticado accede a lo que OnRequest marco como protegido.
+  LPermisoAttr := nil;
+  LCtx := TRttiContext.Create;
+  try
+    LType := LCtx.FindType(AControllerQualifiedClassName);
+    if Assigned(LType) then
+    begin
+      LMethod := LType.GetMethod(AActionName);
+      if Assigned(LMethod) then
+      begin
+        for LAttr in LMethod.GetAttributes do
+        begin
+          if LAttr is TMVCRequiresPermisoAttribute then
+          begin
+            LPermisoAttr := TMVCRequiresPermisoAttribute(LAttr);
+            Break;
+          end;
+        end;
+      end;
+    end;
+
+    if not Assigned(LPermisoAttr) then
+    begin
+      AIsAuthorized := True;
+      Exit;
+    end;
+
+    LUsuarioID := GetCurrentUserID(AContext);
+    AIsAuthorized := fPermisoRepository.UsuarioTienePermiso(LUsuarioID, LPermisoAttr.Modulo, LPermisoAttr.Accion);
+  finally
+    LCtx.Free;
+  end;
 end;
 
 { TRegistroService }

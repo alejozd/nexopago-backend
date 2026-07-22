@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services.EntradasMercancia,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -24,6 +25,7 @@ type
     // Listado paginado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N }.
     [MVCSwagSummary('Entradas', 'Listado paginado de entradas de mercancia (auditoria)')]
+    [TMVCRequiresPermiso('CHIPIS', 'ENTRADAS_LEER')]
     [MVCPath('/entradas')]
     [MVCHTTPMethod([httpGET])]
     function GetEntradas(
@@ -34,12 +36,14 @@ type
       const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TEntradaListDTO>;
 
     [MVCSwagSummary('Entradas', 'Registra la entrada de mercancia de una orden de compra')]
+    [TMVCRequiresPermiso('CHIPIS', 'ENTRADAS_REGISTRAR')]
     [MVCPath('/entradas')]
     [MVCHTTPMethod([httpPOST])]
     function CreateEntrada(const [MVCFromBody] ADatos: TEntradaCreateDTO): IMVCResponse;
 
     // Tarjetas KPI del listado: Total, Ultimo mes, Ordenes asociadas.
     [MVCSwagSummary('Entradas', 'Resumen de entradas: total, ultimo mes y ordenes asociadas')]
+    [TMVCRequiresPermiso('CHIPIS', 'ENTRADAS_LEER')]
     [MVCPath('/entradas/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TEntradasResumenDTO;

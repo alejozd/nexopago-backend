@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services.Recibos,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -21,6 +22,7 @@ type
     // Listado paginado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N }.
     [MVCSwagSummary('Recibos', 'Listado paginado de recibos de caja')]
+    [TMVCRequiresPermiso('CHIPIS', 'RECIBOS_LEER')]
     [MVCPath('/recibos')]
     [MVCHTTPMethod([httpGET])]
     function GetRecibos(
@@ -34,6 +36,7 @@ type
     // panel derecho de este formulario se consulta con el endpoint que ya
     // existe: GET /api/ordenes/(id).
     [MVCSwagSummary('Recibos', 'Registra un recibo de caja contra una orden de compra')]
+    [TMVCRequiresPermiso('CHIPIS', 'RECIBOS_CREAR')]
     [MVCPath('/recibos')]
     [MVCHTTPMethod([httpPOST])]
     function CreateRecibo(const [MVCFromBody] ADatos: TReciboCreateDTO): IMVCResponse;
@@ -41,6 +44,7 @@ type
     // No revierte nada manualmente: montoPagado/saldoPendiente de la orden
     // se recalculan solos porque solo suman recibos ACTIVO.
     [MVCSwagSummary('Recibos', 'Anula un recibo de caja (no lo elimina)')]
+    [TMVCRequiresPermiso('CHIPIS', 'RECIBOS_ANULAR')]
     [MVCPath('/recibos/($id)/anular')]
     [MVCHTTPMethod([httpPUT])]
     function AnularRecibo(const id: Int64;
@@ -48,6 +52,7 @@ type
 
     // Tarjetas KPI del listado: Total, Activos, Anulados, Monto total.
     [MVCSwagSummary('Recibos', 'Resumen de recibos: total, activos, anulados y monto total')]
+    [TMVCRequiresPermiso('CHIPIS', 'RECIBOS_LEER')]
     [MVCPath('/recibos/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TRecibosResumenDTO;

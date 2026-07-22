@@ -8,6 +8,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services.Permisos,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -24,6 +25,7 @@ type
     constructor Create(APermisosService: IPermisosService); reintroduce;
 
     [MVCSwagSummary('Permisos', 'Listado paginado de modulos (catalogo)')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'PERMISOS_LEER')]
     [MVCPath('/modulos')]
     [MVCHTTPMethod([httpGET])]
     function GetModulos(
@@ -33,6 +35,7 @@ type
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TModuloDTO>;
 
     [MVCSwagSummary('Permisos', 'Listado paginado de perfiles (catalogo)')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'PERMISOS_LEER')]
     [MVCPath('/perfiles')]
     [MVCHTTPMethod([httpGET])]
     function GetPerfiles(
@@ -42,6 +45,7 @@ type
       const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TPerfilDTO>;
 
     [MVCSwagSummary('Permisos', 'Listado paginado de permisos (catalogo)')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'PERMISOS_LEER')]
     [MVCPath('/permisos')]
     [MVCHTTPMethod([httpGET])]
     function GetPermisos(
@@ -53,20 +57,35 @@ type
     // Catalogo completo de permisos + flag "asignado", para pintar la matriz
     // de un perfil especifico. No es un listado paginado (ver el Service).
     [MVCSwagSummary('Permisos', 'Matriz de permisos de un perfil (catalogo completo + flag asignado)')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'PERMISOS_LEER')]
     [MVCPath('/perfiles/($id)/permisos')]
     [MVCHTTPMethod([httpGET])]
     function GetMatriz(const id: Int64): TObjectList<TPermisoMatrizItemDTO>;
 
     [MVCSwagSummary('Permisos', 'Asigna la lista de permisos de un perfil')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'PERMISOS_ASIGNAR')]
     [MVCPath('/perfiles/($id)/permisos')]
     [MVCHTTPMethod([httpPUT])]
     function AsignarPermisos(const id: Int64; const [MVCFromBody] ADatos: TAsignarPermisosDTO): IMVCResponse;
+
+    [MVCSwagSummary('Permisos', 'Crea un perfil (rol) nuevo')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'PERMISOS_ASIGNAR')]
+    [MVCPath('/perfiles')]
+    [MVCHTTPMethod([httpPOST])]
+    function CreatePerfil(const [MVCFromBody] ADatos: TPerfilCreateDTO): IMVCResponse;
+
+    [MVCSwagSummary('Permisos', 'Actualiza nombre/descripcion de un perfil')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'PERMISOS_ASIGNAR')]
+    [MVCPath('/perfiles/($id)')]
+    [MVCHTTPMethod([httpPUT])]
+    function UpdatePerfil(const id: Int64; const [MVCFromBody] ADatos: TPerfilCreateDTO): IMVCResponse;
   end;
 
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  NexoPago.Security.CurrentUser;
 
 constructor TPermisosController.Create(APermisosService: IPermisosService);
 begin
@@ -101,6 +120,20 @@ function TPermisosController.AsignarPermisos(const id: Int64; const ADatos: TAsi
 begin
   fPermisosService.AsignarPermisos(id, ADatos);
   Result := OKResponse('Permisos actualizados correctamente');
+end;
+
+function TPermisosController.CreatePerfil(const ADatos: TPerfilCreateDTO): IMVCResponse;
+var
+  LNewID: Int64;
+begin
+  LNewID := fPermisosService.CrearPerfil(ADatos, GetCurrentUserID(Context));
+  Result := CreatedResponse('/api/perfiles/' + LNewID.ToString, 'Perfil creado correctamente');
+end;
+
+function TPermisosController.UpdatePerfil(const id: Int64; const ADatos: TPerfilCreateDTO): IMVCResponse;
+begin
+  fPermisosService.ActualizarPerfil(id, ADatos, GetCurrentUserID(Context));
+  Result := OKResponse('Perfil actualizado correctamente');
 end;
 
 end.

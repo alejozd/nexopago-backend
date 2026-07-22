@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -21,6 +22,7 @@ type
     // Contrato de listado para PrimeReact: page, rows, sortField, sortOrder
     // -> { data: [...], totalRecords: N } (ver CLAUDE.md)
     [MVCSwagSummary('Proveedores', 'Listado paginado de proveedores')]
+    [TMVCRequiresPermiso('CHIPIS', 'PROVEEDORES_LEER')]
     [MVCPath('/proveedores')]
     [MVCHTTPMethod([httpGET])]
     function GetProveedores(
@@ -31,16 +33,19 @@ type
       const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TProveedorDTO>;
 
     [MVCSwagSummary('Proveedores', 'Crea un proveedor')]
+    [TMVCRequiresPermiso('CHIPIS', 'PROVEEDORES_CREAR')]
     [MVCPath('/proveedores')]
     [MVCHTTPMethod([httpPOST])]
     function CreateProveedor(const [MVCFromBody] ADatos: TProveedorCreateDTO): IMVCResponse;
 
     [MVCSwagSummary('Proveedores', 'Actualiza los datos de un proveedor')]
+    [TMVCRequiresPermiso('CHIPIS', 'PROVEEDORES_EDITAR')]
     [MVCPath('/proveedores/($id)')]
     [MVCHTTPMethod([httpPUT])]
     function UpdateProveedor(const id: Int64; const [MVCFromBody] ADatos: TProveedorCreateDTO): IMVCResponse;
 
     [MVCSwagSummary('Proveedores', 'Activa o inactiva un proveedor')]
+    [TMVCRequiresPermiso('CHIPIS', 'PROVEEDORES_EDITAR')]
     [MVCPath('/proveedores/($id)/estado')]
     [MVCHTTPMethod([httpPUT])]
     function CambiarEstadoProveedor(const id: Int64;
@@ -49,12 +54,14 @@ type
     // Rechaza el borrado (409) si el proveedor tiene ordenes de compra
     // asociadas: la FK no tiene cascada.
     [MVCSwagSummary('Proveedores', 'Elimina un proveedor (rechaza si tiene ordenes asociadas)')]
+    [TMVCRequiresPermiso('CHIPIS', 'PROVEEDORES_ELIMINAR')]
     [MVCPath('/proveedores/($id)')]
     [MVCHTTPMethod([httpDELETE])]
     function DeleteProveedor(const id: Int64): IMVCResponse;
 
     // Tarjetas KPI del listado: Total, Activos, Inactivos.
     [MVCSwagSummary('Proveedores', 'Resumen de proveedores: total, activos e inactivos')]
+    [TMVCRequiresPermiso('CHIPIS', 'PROVEEDORES_LEER')]
     [MVCPath('/proveedores/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TProveedoresResumenDTO;

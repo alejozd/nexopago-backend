@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services.Ordenes,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -22,6 +23,7 @@ type
     // -> { data: [...], totalRecords: N }. valorTotal viene agregado por
     // Firebird (SUM de SUBTOTAL), nunca sumado en Delphi.
     [MVCSwagSummary('Ordenes', 'Listado paginado de ordenes de compra')]
+    [TMVCRequiresPermiso('CHIPIS', 'ORDENES_LEER')]
     [MVCPath('/ordenes')]
     [MVCHTTPMethod([httpGET])]
     function GetOrdenes(
@@ -36,6 +38,7 @@ type
     // segmento tras /ordenes y DMVCFramework matchea por orden de
     // declaracion, así que /ordenes/($id) capturaria "resumen" como id.
     [MVCSwagSummary('Ordenes', 'Resumen de ordenes: pendientes, recibidas y anuladas')]
+    [TMVCRequiresPermiso('CHIPIS', 'ORDENES_LEER')]
     [MVCPath('/ordenes/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TOrdenesResumenDTO;
@@ -43,6 +46,7 @@ type
     // Detalle completo: cabecera + lineas, cada una con su SUBTOTAL real
     // (COMPUTED BY en Firebird).
     [MVCSwagSummary('Ordenes', 'Detalle de una orden de compra (cabecera + lineas)')]
+    [TMVCRequiresPermiso('CHIPIS', 'ORDENES_LEER')]
     [MVCPath('/ordenes/($id)')]
     [MVCHTTPMethod([httpGET])]
     function GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
@@ -50,6 +54,7 @@ type
     // Cabecera + detalle en una unica transaccion FireDAC (ver
     // TOrdenesService.CrearOrden).
     [MVCSwagSummary('Ordenes', 'Crea una orden de compra con sus lineas de detalle')]
+    [TMVCRequiresPermiso('CHIPIS', 'ORDENES_CREAR')]
     [MVCPath('/ordenes')]
     [MVCHTTPMethod([httpPOST])]
     function CreateOrden(const [MVCFromBody] ADatos: TOrdenCompraCreateDTO): IMVCResponse;
@@ -57,12 +62,14 @@ type
     // Solo permitido si la orden esta en BORRADOR o PENDIENTE. Reemplaza
     // cabecera + todas las lineas (ver TOrdenesService.ActualizarOrden).
     [MVCSwagSummary('Ordenes', 'Actualiza una orden de compra (solo BORRADOR/PENDIENTE)')]
+    [TMVCRequiresPermiso('CHIPIS', 'ORDENES_EDITAR')]
     [MVCPath('/ordenes/($id)')]
     [MVCHTTPMethod([httpPUT])]
     function UpdateOrden(const id: Int64; const [MVCFromBody] ADatos: TOrdenCompraCreateDTO): IMVCResponse;
 
     // No revierte recibos ni entradas: solo marca la orden como ANULADA.
     [MVCSwagSummary('Ordenes', 'Anula una orden de compra (no la elimina)')]
+    [TMVCRequiresPermiso('CHIPIS', 'ORDENES_ANULAR')]
     [MVCPath('/ordenes/($id)/anular')]
     [MVCHTTPMethod([httpPUT])]
     function AnularOrden(const id: Int64;

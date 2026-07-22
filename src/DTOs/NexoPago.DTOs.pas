@@ -161,12 +161,16 @@ type
     fNombre: String;
     fApellido: NullableString;
     fRoles: TArray<String>;
+    fPermisos: TArray<String>;
   public
     property ID: Int64 read fID write fID;
     property NombreUsuario: String read fNombreUsuario write fNombreUsuario;
     property Nombre: String read fNombre write fNombre;
     property Apellido: NullableString read fApellido write fApellido;
     property Roles: TArray<String> read fRoles write fRoles;
+    // Codigos 'MODULO:ACCION' de todos los permisos concedidos al usuario
+    // (via sus perfiles). Ver IPermisoRepository.GetPermisosDeUsuario.
+    property Permisos: TArray<String> read fPermisos write fPermisos;
   end;
 
   // Fila del listado paginado GET /api/ordenes. valorTotal es la suma de los
@@ -591,6 +595,19 @@ type
     fDescripcion: NullableString;
   public
     property ID: Int64 read fID write fID;
+    property Nombre: String read fNombre write fNombre;
+    property Descripcion: NullableString read fDescripcion write fDescripcion;
+  end;
+
+  // Body de POST /api/perfiles y PUT /api/perfiles/(id). Mismo shape para
+  // crear y editar: solo nombre/descripcion, la asignacion de permisos es
+  // un endpoint aparte (PUT /perfiles/(id)/permisos).
+  [MVCNameCase(ncCamelCase)]
+  TPerfilCreateDTO = class
+  private
+    fNombre: String;
+    fDescripcion: NullableString;
+  public
     property Nombre: String read fNombre write fNombre;
     property Descripcion: NullableString read fDescripcion write fDescripcion;
   end;
