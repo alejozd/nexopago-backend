@@ -9,7 +9,8 @@ uses
 type
   IUsuariosService = interface
     ['{25E89058-946C-4E7A-907C-57746E9A25C7}']
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    // ASearch filtra por Usuario, Nombre completo, Rol o Estado.
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TUsuarioListDTO>;
     function GetResumen: TUsuariosResumenDTO;
     // Retorna el USUARIO_ID recien creado. Requiere al menos un perfil
@@ -45,7 +46,7 @@ type
     function ParsePerfilIdsCSV(const ACSV: String): TArray<Int64>;
   public
     constructor Create(AUsuarioRepository: IUsuarioRepository);
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TUsuarioListDTO>;
     function GetResumen: TUsuariosResumenDTO;
     function CrearUsuario(const ADatos: TUsuarioCreateDTO; const AUsuarioID: Int64): Int64;
@@ -106,22 +107,28 @@ begin
   end;
 end;
 
-function TUsuariosService.GetPaged(const APage, ARows: Integer; const ASortField: String;
+function TUsuariosService.GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
   const ASortOrder: Integer): TPagedResultDTO<TUsuarioListDTO>;
 var
   LRows: TArray<TUsuarioListRow>;
   LRow: TUsuarioListRow;
   LDTO: TUsuarioListDTO;
   LOffset, LLimit: Integer;
+  LSearch: String;
 begin
   LLimit := Max(ARows, 1);
   LOffset := (Max(APage, 1) - 1) * LLimit;
+  // UpperCase porque las columnas de busqueda no tienen collation
+  // case-insensitive: un LIKE normal es sensible a mayusculas.
+  LSearch := UpperCase(Trim(ASearch));
+  if LSearch <> '' then
+    LSearch := '%' + LSearch + '%';
 
   Result := TPagedResultDTO<TUsuarioListDTO>.Create;
   try
-    Result.TotalRecords := fUsuarioRepository.Count;
+    Result.TotalRecords := fUsuarioRepository.CountBySearch(LSearch);
 
-    LRows := fUsuarioRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder));
+    LRows := fUsuarioRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder), LSearch);
     for LRow in LRows do
     begin
       LDTO := TUsuarioListDTO.Create;

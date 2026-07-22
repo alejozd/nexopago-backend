@@ -11,7 +11,8 @@ type
     ['{97E6B955-30A7-4C51-9FDC-8545DA8B4161}']
     // Listado de solo lectura para auditoria (CONTEXTO_PROYECTO.md 3.6:
     // las entradas se crean solo desde Ordenes, pero se pueden consultar).
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    // ASearch filtra por N Entrada ERP, N Orden o Proveedor.
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
     // Registra la entrada y actualiza ORDEN_COMPRA.ESTADO en la misma
     // transaccion. Retorna el ENTRADA_ID recien creado.
@@ -42,7 +43,7 @@ type
     function BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
   public
     constructor Create(AEntradasRepository: IEntradasMercanciaRepository; AOrdenesRepository: IOrdenesRepository);
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
     function RegistrarEntrada(const ADatos: TEntradaCreateDTO; const AUsuarioID: Int64): Int64;
     function GetResumen: TEntradasResumenDTO;
@@ -84,22 +85,28 @@ begin
   Result := LColumn + ' ' + LDirection;
 end;
 
-function TEntradasMercanciaService.GetPaged(const APage, ARows: Integer; const ASortField: String;
+function TEntradasMercanciaService.GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
   const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
 var
   LRows: TArray<TEntradaListRow>;
   LRow: TEntradaListRow;
   LDTO: TEntradaListDTO;
   LOffset, LLimit: Integer;
+  LSearch: String;
 begin
   LLimit := Max(ARows, 1);
   LOffset := (Max(APage, 1) - 1) * LLimit;
+  // UpperCase porque las columnas de busqueda no tienen collation
+  // case-insensitive: un LIKE normal es sensible a mayusculas.
+  LSearch := UpperCase(Trim(ASearch));
+  if LSearch <> '' then
+    LSearch := '%' + LSearch + '%';
 
   Result := TPagedResultDTO<TEntradaListDTO>.Create;
   try
-    Result.TotalRecords := fEntradasRepository.Count;
+    Result.TotalRecords := fEntradasRepository.CountBySearch(LSearch);
 
-    LRows := fEntradasRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder));
+    LRows := fEntradasRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder), LSearch);
     for LRow in LRows do
     begin
       LDTO := TEntradaListDTO.Create;

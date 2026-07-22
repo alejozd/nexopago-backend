@@ -30,7 +30,8 @@ type
       const [MVCFromQueryString('page', 1)] APage: Integer;
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('sortField', '')] ASortField: String;
-      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
+      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer;
+      const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TEntradaListDTO>;
 
     [MVCSwagSummary('Entradas', 'Registra la entrada de mercancia de una orden de compra')]
     [MVCPath('/entradas')]
@@ -57,9 +58,9 @@ begin
 end;
 
 function TEntradasMercanciaController.GetEntradas(const APage, ARows: Integer; const ASortField: String;
-  const ASortOrder: Integer): TPagedResultDTO<TEntradaListDTO>;
+  const ASortOrder: Integer; const ASearch: String): TPagedResultDTO<TEntradaListDTO>;
 begin
-  Result := fEntradasService.GetPaged(APage, ARows, ASortField, ASortOrder);
+  Result := fEntradasService.GetPaged(APage, ARows, ASortField, ASearch, ASortOrder);
 end;
 
 function TEntradasMercanciaController.CreateEntrada(const ADatos: TEntradaCreateDTO): IMVCResponse;

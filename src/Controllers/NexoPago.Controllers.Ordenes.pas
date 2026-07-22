@@ -28,7 +28,8 @@ type
       const [MVCFromQueryString('page', 1)] APage: Integer;
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('sortField', '')] ASortField: String;
-      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
+      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer;
+      const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TOrdenCompraDTO>;
 
     // Tarjetas KPI del listado: Pendientes, Recibidas, Anuladas.
     // Debe declararse ANTES que GetOrdenByID: ambas son GET con un solo
@@ -81,9 +82,9 @@ begin
 end;
 
 function TOrdenesController.GetOrdenes(const APage, ARows: Integer; const ASortField: String;
-  const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
+  const ASortOrder: Integer; const ASearch: String): TPagedResultDTO<TOrdenCompraDTO>;
 begin
-  Result := fOrdenesService.GetPaged(APage, ARows, ASortField, ASortOrder);
+  Result := fOrdenesService.GetPaged(APage, ARows, ASortField, ASearch, ASortOrder);
 end;
 
 function TOrdenesController.GetResumen: TOrdenesResumenDTO;

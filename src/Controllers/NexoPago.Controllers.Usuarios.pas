@@ -27,7 +27,8 @@ type
       const [MVCFromQueryString('page', 1)] APage: Integer;
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('sortField', '')] ASortField: String;
-      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TUsuarioListDTO>;
+      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer;
+      const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TUsuarioListDTO>;
 
     // Tarjetas de 3.9: Total, Activos, Roles.
     [MVCSwagSummary('Usuarios', 'Resumen de usuarios: total, activos y roles')]
@@ -64,9 +65,9 @@ begin
 end;
 
 function TUsuariosController.GetUsuarios(const APage, ARows: Integer; const ASortField: String;
-  const ASortOrder: Integer): TPagedResultDTO<TUsuarioListDTO>;
+  const ASortOrder: Integer; const ASearch: String): TPagedResultDTO<TUsuarioListDTO>;
 begin
-  Result := fUsuariosService.GetPaged(APage, ARows, ASortField, ASortOrder);
+  Result := fUsuariosService.GetPaged(APage, ARows, ASortField, ASearch, ASortOrder);
 end;
 
 function TUsuariosController.GetResumen: TUsuariosResumenDTO;

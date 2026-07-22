@@ -9,7 +9,8 @@ uses
 type
   IRecibosService = interface
     ['{AA3FEA80-46BC-434E-A257-5CF47C94EC0F}']
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    // ASearch filtra por Numero de Recibo, Numero de Orden o Proveedor.
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
     // Retorna el RECIBO_ID recien creado. tipoPago se calcula en el Service,
     // nunca se acepta del cliente.
@@ -46,7 +47,7 @@ type
     function SiguienteNumeroRecibo: String;
   public
     constructor Create(ARecibosRepository: IRecibosRepository; AOrdenesRepository: IOrdenesRepository);
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
     function CrearRecibo(const ADatos: TReciboCreateDTO; const AUsuarioID: Int64): Int64;
     procedure AnularRecibo(const AReciboID: Int64; const AMotivo: String; const AUsuarioID: Int64);
@@ -90,22 +91,28 @@ begin
   Result := LColumn + ' ' + LDirection;
 end;
 
-function TRecibosService.GetPaged(const APage, ARows: Integer; const ASortField: String;
+function TRecibosService.GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
   const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
 var
   LRows: TArray<TReciboCajaListRow>;
   LRow: TReciboCajaListRow;
   LDTO: TReciboCajaDTO;
   LOffset, LLimit: Integer;
+  LSearch: String;
 begin
   LLimit := Max(ARows, 1);
   LOffset := (Max(APage, 1) - 1) * LLimit;
+  // UpperCase porque las columnas de busqueda no tienen collation
+  // case-insensitive: un LIKE normal es sensible a mayusculas.
+  LSearch := UpperCase(Trim(ASearch));
+  if LSearch <> '' then
+    LSearch := '%' + LSearch + '%';
 
   Result := TPagedResultDTO<TReciboCajaDTO>.Create;
   try
-    Result.TotalRecords := fRecibosRepository.Count;
+    Result.TotalRecords := fRecibosRepository.CountBySearch(LSearch);
 
-    LRows := fRecibosRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder));
+    LRows := fRecibosRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder), LSearch);
     for LRow in LRows do
     begin
       LDTO := TReciboCajaDTO.Create;

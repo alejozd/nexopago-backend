@@ -27,7 +27,8 @@ type
       const [MVCFromQueryString('page', 1)] APage: Integer;
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('sortField', '')] ASortField: String;
-      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
+      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer;
+      const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TReciboCajaDTO>;
 
     // El estado financiero (valorTotal/montoPagado/saldoPendiente) para el
     // panel derecho de este formulario se consulta con el endpoint que ya
@@ -65,9 +66,9 @@ begin
 end;
 
 function TRecibosController.GetRecibos(const APage, ARows: Integer; const ASortField: String;
-  const ASortOrder: Integer): TPagedResultDTO<TReciboCajaDTO>;
+  const ASortOrder: Integer; const ASearch: String): TPagedResultDTO<TReciboCajaDTO>;
 begin
-  Result := fRecibosService.GetPaged(APage, ARows, ASortField, ASortOrder);
+  Result := fRecibosService.GetPaged(APage, ARows, ASortField, ASearch, ASortOrder);
 end;
 
 function TRecibosController.CreateRecibo(const ADatos: TReciboCreateDTO): IMVCResponse;

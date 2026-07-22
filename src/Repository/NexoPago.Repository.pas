@@ -49,8 +49,11 @@ type
     ['{A0EF8C79-29FF-436D-80EA-6B0D84705BFB}']
     function GetRoleNames(const AUsuarioID: Int64): TArray<String>;
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
-    // (whitelist), nunca texto crudo del cliente.
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TUsuarioListRow>;
+    // (whitelist), nunca texto crudo del cliente. ASearch ya viene armado
+    // como '%TERMINO%' en mayusculas (o '' si no hay busqueda), y filtra por
+    // Usuario, Nombre completo, Rol o Estado.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TUsuarioListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TUsuariosResumenRow;
     // Reemplazo completo de perfiles asignados (delete+insert en
     // USUARIO_PERFIL), mismo patron que IPerfilRepository.SetPermisoIds.
@@ -60,7 +63,8 @@ type
   TUsuarioRepository = class(TMVCRepository<TUsuario>, IUsuarioRepository)
   public
     function GetRoleNames(const AUsuarioID: Int64): TArray<String>;
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TUsuarioListRow>;
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TUsuarioListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TUsuariosResumenRow;
     procedure SetPerfilIds(const AUsuarioID: Int64; const APerfilIds: TArray<Int64>);
   end;
@@ -72,13 +76,41 @@ type
     CreadosUltimoMes: Int64;
   end;
 
+  // Fila plana para el listado paginado de proveedores (mismo molde que
+  // TProductoListRow / TEntradaListRow: FDQuery directo, no ActiveRecord
+  // RQL, porque RQL no soporta busqueda de subcadena ("contains" en RQL es
+  // solo para arrays; "starts" es solo prefijo).
+  TProveedorListRow = record
+    ProveedorID: Int64;
+    Nit: String;
+    CodigoHelisa: Integer;
+    TieneCodigoHelisa: Boolean;
+    CodigoInterno: String;
+    TieneCodigoInterno: Boolean;
+    Nombre: String;
+    Direccion: String;
+    TieneDireccion: Boolean;
+    Telefono: String;
+    TieneTelefono: Boolean;
+    CorreoElectronico: String;
+    TieneCorreoElectronico: Boolean;
+    Activo: Boolean;
+  end;
+
   IProveedorRepository = interface(IMVCRepository<TProveedor>)
     ['{AA1CC4AE-608A-40AF-8E22-73A269790B8F}']
+    // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
+    // (whitelist). ASearch ya viene armado como '%TERMINO%' en mayusculas (o
+    // '' si no hay busqueda), y filtra por NIT, NOMBRE o CORREO_ELECTRONICO.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TProveedorListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TProveedoresResumenRow;
   end;
 
   TProveedorRepository = class(TMVCRepository<TProveedor>, IProveedorRepository)
   public
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TProveedorListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TProveedoresResumenRow;
   end;
 
@@ -160,8 +192,11 @@ type
   IOrdenesRepository = interface(IMVCRepository<TOrdenCompra>)
     ['{9CEDA904-AF62-4709-89EC-EE2A5995E9D7}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
-    // (whitelist), nunca texto crudo del cliente.
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+    // (whitelist), nunca texto crudo del cliente. ASearch ya viene armado
+    // como '%TERMINO%' en mayusculas (o '' si no hay busqueda), y filtra por
+    // Numero de Orden, Proveedor, Proyecto o Solicitud.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TOrdenCompraListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TOrdenesResumenRow;
     // AOrdenIDExcluir permite editar una orden existente sin que sus propias
     // lineas cuenten en contra de si misma (0 = no excluir ninguna, valido
@@ -173,7 +208,8 @@ type
 
   TOrdenesRepository = class(TMVCRepository<TOrdenCompra>, IOrdenesRepository)
   public
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TOrdenCompraListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TOrdenesResumenRow;
     function ObtenerConsumoPedidoHelisa(const ANumeroPedidoHelisa: String;
       const AOrdenIDExcluir: Int64 = 0): TArray<TConsumoPedidoLineaRow>;
@@ -204,8 +240,11 @@ type
   IRecibosRepository = interface(IMVCRepository<TReciboCajaChipis>)
     ['{2C83B391-95D4-4F8D-BBED-2EFECD61CCE0}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
-    // (whitelist), nunca texto crudo del cliente.
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TReciboCajaListRow>;
+    // (whitelist), nunca texto crudo del cliente. ASearch ya viene armado
+    // como '%TERMINO%' en mayusculas (o '' si no hay busqueda), y filtra por
+    // Numero de Recibo, Numero de Orden o Proveedor.
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TReciboCajaListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     // SUM(MONTO) de recibos ACTIVO para una orden. Fuente de verdad unica
     // para "pagado"/"saldo pendiente", usada tanto por Ordenes (detalle)
     // como por Recibos (validacion al crear).
@@ -215,7 +254,8 @@ type
 
   TRecibosRepository = class(TMVCRepository<TReciboCajaChipis>, IRecibosRepository)
   public
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TReciboCajaListRow>;
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TReciboCajaListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetTotalPagado(const AOrdenID: Int64): Currency;
     function GetResumen: TRecibosResumenRow;
   end;
@@ -247,8 +287,12 @@ type
   IEntradasMercanciaRepository = interface(IMVCRepository<TEntradaMercancia>)
     ['{72DE6C24-8744-40F2-A5F5-D5741CB0793A}']
     // ASortColumnSQL debe ser un fragmento SQL ya validado por el Service
-    // (whitelist), nunca texto crudo del cliente.
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
+    // (whitelist), nunca texto crudo del cliente. ASearch ya viene armado
+    // como '%TERMINO%' en mayusculas (o '' si no hay busqueda).
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TEntradaListRow>;
+    // Filtra por N Entrada ERP, N Orden o nombre de Proveedor (mismo termino
+    // contra los 3 campos).
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TEntradasResumenRow;
     // SUM(ENTRADA_DETALLE.CANTIDAD_RECIBIDA) para UNA linea de
     // ORDEN_COMPRA_DETALLE (0 si aun no se ha recibido nada). Base para
@@ -264,7 +308,8 @@ type
 
   TEntradasMercanciaRepository = class(TMVCRepository<TEntradaMercancia>, IEntradasMercanciaRepository)
   public
-    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL: String): TArray<TEntradaListRow>;
+    function GetListado(const AOffset, ALimit: Integer; const ASortColumnSQL, ASearch: String): TArray<TEntradaListRow>;
+    function CountBySearch(const ASearch: String): Int64;
     function GetResumen: TEntradasResumenRow;
     function GetCantidadRecibida(const AOrdenDetalleID: Int64): Currency;
     function GetTotalCantidadRecibida(const AOrdenID: Int64): Currency;
@@ -513,7 +558,7 @@ begin
 end;
 
 function TOrdenesRepository.GetListado(const AOffset, ALimit: Integer;
-  const ASortColumnSQL: String): TArray<TOrdenCompraListRow>;
+  const ASortColumnSQL, ASearch: String): TArray<TOrdenCompraListRow>;
 var
   LQuery: TFDQuery;
   LRows: TList<TOrdenCompraListRow>;
@@ -524,18 +569,39 @@ begin
     LQuery := TFDQuery.Create(nil);
     try
       LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
-      LQuery.SQL.Text :=
-        'SELECT FIRST :flimit SKIP :foffset ' +
-        '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
-        '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
-        '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
-        'FROM ORDEN_COMPRA OC ' +
-        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
-        'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
-        'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
-        'ORDER BY ' + ASortColumnSQL;
+      // Dos ramas de SQL (no ':search' condicional en el mismo texto): igual
+      // que TProductoRepository.GetListado, Firebird tipa el parametro segun
+      // su primer uso y un LIKE vacio rompe el tipado si se reutiliza.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
+          '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
+          '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
+          'FROM ORDEN_COMPRA OC ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
+          'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
+          'ORDER BY ' + ASortColumnSQL
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
+          '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
+          '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
+          'FROM ORDEN_COMPRA OC ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
+          'WHERE (UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+          '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+          '   OR (UPPER(COALESCE(OC.PROYECTO, '''')) LIKE :search) ' +
+          '   OR (UPPER(COALESCE(OC.SOLICITUD, '''')) LIKE :search) ' +
+          'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
+          'ORDER BY ' + ASortColumnSQL;
       LQuery.ParamByName('flimit').AsInteger := ALimit;
       LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
       LQuery.Open;
       while not LQuery.Eof do
       begin
@@ -556,6 +622,37 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TOrdenesRepository.CountBySearch(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ORDEN_COMPRA OC ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID'
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ORDEN_COMPRA OC ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'WHERE (UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+        '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+        '   OR (UPPER(COALESCE(OC.PROYECTO, '''')) LIKE :search) ' +
+        '   OR (UPPER(COALESCE(OC.SOLICITUD, '''')) LIKE :search)';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 
@@ -731,7 +828,7 @@ begin
 end;
 
 function TRecibosRepository.GetListado(const AOffset, ALimit: Integer;
-  const ASortColumnSQL: String): TArray<TReciboCajaListRow>;
+  const ASortColumnSQL, ASearch: String): TArray<TReciboCajaListRow>;
 var
   LQuery: TFDQuery;
   LRows: TList<TReciboCajaListRow>;
@@ -742,16 +839,34 @@ begin
     LQuery := TFDQuery.Create(nil);
     try
       LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
-      LQuery.SQL.Text :=
-        'SELECT FIRST :flimit SKIP :foffset ' +
-        '  R.RECIBO_ID, R.NUMERO_RECIBO, R.FECHA_RECIBO, R.MONTO, R.TIPO_PAGO, R.ESTADO, R.OBSERVACIONES, ' +
-        '  OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE ' +
-        'FROM RECIBO_CAJA_CHIPIS R ' +
-        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = R.ORDEN_ID ' +
-        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
-        'ORDER BY ' + ASortColumnSQL;
+      // Dos ramas de SQL (no ':search' condicional en el mismo texto): igual
+      // que TProductoRepository.GetListado, Firebird tipa el parametro segun
+      // su primer uso y un LIKE vacio rompe el tipado si se reutiliza.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  R.RECIBO_ID, R.NUMERO_RECIBO, R.FECHA_RECIBO, R.MONTO, R.TIPO_PAGO, R.ESTADO, R.OBSERVACIONES, ' +
+          '  OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE ' +
+          'FROM RECIBO_CAJA_CHIPIS R ' +
+          'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = R.ORDEN_ID ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'ORDER BY ' + ASortColumnSQL
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  R.RECIBO_ID, R.NUMERO_RECIBO, R.FECHA_RECIBO, R.MONTO, R.TIPO_PAGO, R.ESTADO, R.OBSERVACIONES, ' +
+          '  OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE ' +
+          'FROM RECIBO_CAJA_CHIPIS R ' +
+          'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = R.ORDEN_ID ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'WHERE (UPPER(R.NUMERO_RECIBO) LIKE :search) ' +
+          '   OR (UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+          '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+          'ORDER BY ' + ASortColumnSQL;
       LQuery.ParamByName('flimit').AsInteger := ALimit;
       LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
       LQuery.Open;
       while not LQuery.Eof do
       begin
@@ -775,6 +890,38 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TRecibosRepository.CountBySearch(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM RECIBO_CAJA_CHIPIS R ' +
+        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = R.ORDEN_ID ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID'
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM RECIBO_CAJA_CHIPIS R ' +
+        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = R.ORDEN_ID ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'WHERE (UPPER(R.NUMERO_RECIBO) LIKE :search) ' +
+        '   OR (UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+        '   OR (UPPER(P.NOMBRE) LIKE :search)';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 
@@ -822,7 +969,7 @@ begin
 end;
 
 function TEntradasMercanciaRepository.GetListado(const AOffset, ALimit: Integer;
-  const ASortColumnSQL: String): TArray<TEntradaListRow>;
+  const ASortColumnSQL, ASearch: String): TArray<TEntradaListRow>;
 var
   LQuery: TFDQuery;
   LRows: TList<TEntradaListRow>;
@@ -833,18 +980,38 @@ begin
     LQuery := TFDQuery.Create(nil);
     try
       LQuery.Connection := GetConnection; // heredado de TMVCRepository<T>: conexion de la request actual
-      LQuery.SQL.Text :=
-        'SELECT FIRST :flimit SKIP :foffset ' +
-        '  E.ENTRADA_ID, E.NUMERO_ENTRADA_HELISA, E.FECHA_ENTRADA, E.FECHA_CREACION, E.OBSERVACIONES, ' +
-        '  OC.ORDEN_ID, OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE, ' +
-        '  TRIM(U.NOMBRE || '' '' || COALESCE(U.APELLIDO, '''')) AS USUARIO_CREO_NOMBRE ' +
-        'FROM ENTRADAS_MERCANCIA E ' +
-        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = E.ORDEN_ID ' +
-        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
-        'LEFT JOIN USUARIO U ON U.USUARIO_ID = E.USUARIO_CREO_ID ' +
-        'ORDER BY ' + ASortColumnSQL;
+      // Dos ramas de SQL (no ':search' condicional en el mismo texto): igual
+      // que TProductoRepository.GetListado, Firebird tipa el parametro segun
+      // su primer uso y un LIKE vacio rompe el tipado si se reutiliza.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  E.ENTRADA_ID, E.NUMERO_ENTRADA_HELISA, E.FECHA_ENTRADA, E.FECHA_CREACION, E.OBSERVACIONES, ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE, ' +
+          '  TRIM(U.NOMBRE || '' '' || COALESCE(U.APELLIDO, '''')) AS USUARIO_CREO_NOMBRE ' +
+          'FROM ENTRADAS_MERCANCIA E ' +
+          'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = E.ORDEN_ID ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN USUARIO U ON U.USUARIO_ID = E.USUARIO_CREO_ID ' +
+          'ORDER BY ' + ASortColumnSQL
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  E.ENTRADA_ID, E.NUMERO_ENTRADA_HELISA, E.FECHA_ENTRADA, E.FECHA_CREACION, E.OBSERVACIONES, ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, P.NOMBRE AS PROVEEDOR_NOMBRE, ' +
+          '  TRIM(U.NOMBRE || '' '' || COALESCE(U.APELLIDO, '''')) AS USUARIO_CREO_NOMBRE ' +
+          'FROM ENTRADAS_MERCANCIA E ' +
+          'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = E.ORDEN_ID ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN USUARIO U ON U.USUARIO_ID = E.USUARIO_CREO_ID ' +
+          'WHERE (UPPER(E.NUMERO_ENTRADA_HELISA) LIKE :search) ' +
+          '   OR (UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+          '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+          'ORDER BY ' + ASortColumnSQL;
       LQuery.ParamByName('flimit').AsInteger := ALimit;
       LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
       LQuery.Open;
       while not LQuery.Eof do
       begin
@@ -868,6 +1035,38 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TEntradasMercanciaRepository.CountBySearch(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ENTRADAS_MERCANCIA E ' +
+        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = E.ORDEN_ID ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID'
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ENTRADAS_MERCANCIA E ' +
+        'INNER JOIN ORDEN_COMPRA OC ON OC.ORDEN_ID = E.ORDEN_ID ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'WHERE (UPPER(E.NUMERO_ENTRADA_HELISA) LIKE :search) ' +
+        '   OR (UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+        '   OR (UPPER(P.NOMBRE) LIKE :search)';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 
@@ -932,7 +1131,7 @@ begin
 end;
 
 function TUsuarioRepository.GetListado(const AOffset, ALimit: Integer;
-  const ASortColumnSQL: String): TArray<TUsuarioListRow>;
+  const ASortColumnSQL, ASearch: String): TArray<TUsuarioListRow>;
 var
   LQuery: TFDQuery;
   LRows: TList<TUsuarioListRow>;
@@ -943,18 +1142,46 @@ begin
     LQuery := TFDQuery.Create(nil);
     try
       LQuery.Connection := GetConnection;
-      LQuery.SQL.Text :=
-        'SELECT FIRST :flimit SKIP :foffset ' +
-        '  U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO, ' +
-        '  COALESCE(LIST(P.NOMBRE, '', ''), '''') AS ROLES, ' +
-        '  COALESCE(LIST(UP.PERFIL_ID, '',''), '''') AS PERFIL_IDS ' +
-        'FROM USUARIO U ' +
-        'LEFT JOIN USUARIO_PERFIL UP ON UP.USUARIO_ID = U.USUARIO_ID ' +
-        'LEFT JOIN PERFIL P ON P.PERFIL_ID = UP.PERFIL_ID ' +
-        'GROUP BY U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO ' +
-        'ORDER BY ' + ASortColumnSQL;
+      // El filtro por ROL va por subconsulta (USUARIO_ID IN (...)), no por
+      // WHERE directo sobre P.NOMBRE: un WHERE sobre la columna del JOIN
+      // descartaria las filas de los OTROS roles del mismo usuario ANTES del
+      // GROUP BY, truncando el LIST() de ROLES a solo el rol buscado.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO, ' +
+          '  COALESCE(LIST(P.NOMBRE, '', ''), '''') AS ROLES, ' +
+          '  COALESCE(LIST(UP.PERFIL_ID, '',''), '''') AS PERFIL_IDS ' +
+          'FROM USUARIO U ' +
+          'LEFT JOIN USUARIO_PERFIL UP ON UP.USUARIO_ID = U.USUARIO_ID ' +
+          'LEFT JOIN PERFIL P ON P.PERFIL_ID = UP.PERFIL_ID ' +
+          'GROUP BY U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO ' +
+          'ORDER BY ' + ASortColumnSQL
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO, ' +
+          '  COALESCE(LIST(P.NOMBRE, '', ''), '''') AS ROLES, ' +
+          '  COALESCE(LIST(UP.PERFIL_ID, '',''), '''') AS PERFIL_IDS ' +
+          'FROM USUARIO U ' +
+          'LEFT JOIN USUARIO_PERFIL UP ON UP.USUARIO_ID = U.USUARIO_ID ' +
+          'LEFT JOIN PERFIL P ON P.PERFIL_ID = UP.PERFIL_ID ' +
+          'WHERE (UPPER(U.NOMBRE_USUARIO) LIKE :search) ' +
+          '   OR (UPPER(U.NOMBRE) LIKE :search) ' +
+          '   OR (UPPER(U.APELLIDO) LIKE :search) ' +
+          '   OR (UPPER(U.NOMBRE || '' '' || U.APELLIDO) LIKE :search) ' +
+          '   OR (UPPER(CASE WHEN U.ACTIVO <> 0 THEN ''ACTIVO'' ELSE ''INACTIVO'' END) LIKE :search) ' +
+          '   OR U.USUARIO_ID IN (' +
+          '        SELECT UP2.USUARIO_ID FROM USUARIO_PERFIL UP2 ' +
+          '        INNER JOIN PERFIL P2 ON P2.PERFIL_ID = UP2.PERFIL_ID ' +
+          '        WHERE UPPER(P2.NOMBRE) LIKE :search' +
+          '      ) ' +
+          'GROUP BY U.USUARIO_ID, U.NOMBRE_USUARIO, U.NOMBRE, U.APELLIDO, U.ACTIVO, U.FECHA_ULTIMO_ACCESO ' +
+          'ORDER BY ' + ASortColumnSQL;
       LQuery.ParamByName('flimit').AsInteger := ALimit;
       LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
       LQuery.Open;
       while not LQuery.Eof do
       begin
@@ -980,6 +1207,38 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TUsuarioRepository.CountBySearch(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text := 'SELECT COUNT(*) AS CANTIDAD FROM USUARIO U'
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD FROM USUARIO U ' +
+        'WHERE (UPPER(U.NOMBRE_USUARIO) LIKE :search) ' +
+        '   OR (UPPER(U.NOMBRE) LIKE :search) ' +
+        '   OR (UPPER(U.APELLIDO) LIKE :search) ' +
+        '   OR (UPPER(U.NOMBRE || '' '' || U.APELLIDO) LIKE :search) ' +
+        '   OR (UPPER(CASE WHEN U.ACTIVO <> 0 THEN ''ACTIVO'' ELSE ''INACTIVO'' END) LIKE :search) ' +
+        '   OR U.USUARIO_ID IN (' +
+        '        SELECT UP2.USUARIO_ID FROM USUARIO_PERFIL UP2 ' +
+        '        INNER JOIN PERFIL P2 ON P2.PERFIL_ID = UP2.PERFIL_ID ' +
+        '        WHERE UPPER(P2.NOMBRE) LIKE :search' +
+        '      )';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 
@@ -1025,6 +1284,97 @@ begin
       LQuery.ParamByName('perfilId').AsLargeInt := LPerfilID;
       LQuery.ExecSQL;
     end;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TProveedorRepository.GetListado(const AOffset, ALimit: Integer;
+  const ASortColumnSQL, ASearch: String): TArray<TProveedorListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TProveedorListRow>;
+  LRow: TProveedorListRow;
+begin
+  LRows := TList<TProveedorListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection;
+      // Dos ramas de SQL (no ':search' condicional en el mismo texto): igual
+      // que TProductoRepository.GetListado, Firebird tipa el parametro segun
+      // su primer uso y un LIKE vacio rompe el tipado si se reutiliza.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  PROVEEDOR_ID, NIT, CODIGO_HELISA, CODIGO_INTERNO, NOMBRE, DIRECCION, TELEFONO, ' +
+          '  CORREO_ELECTRONICO, ACTIVO ' +
+          'FROM PROVEEDOR ' +
+          'ORDER BY ' + ASortColumnSQL
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  PROVEEDOR_ID, NIT, CODIGO_HELISA, CODIGO_INTERNO, NOMBRE, DIRECCION, TELEFONO, ' +
+          '  CORREO_ELECTRONICO, ACTIVO ' +
+          'FROM PROVEEDOR ' +
+          'WHERE (UPPER(NIT) LIKE :search) OR (UPPER(NOMBRE) LIKE :search) OR (UPPER(CORREO_ELECTRONICO) LIKE :search) ' +
+          'ORDER BY ' + ASortColumnSQL;
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.ProveedorID := LQuery.FieldByName('PROVEEDOR_ID').AsLargeInt;
+        LRow.Nit := LQuery.FieldByName('NIT').AsString;
+        LRow.TieneCodigoHelisa := not LQuery.FieldByName('CODIGO_HELISA').IsNull;
+        if LRow.TieneCodigoHelisa then
+          LRow.CodigoHelisa := LQuery.FieldByName('CODIGO_HELISA').AsInteger;
+        LRow.TieneCodigoInterno := not LQuery.FieldByName('CODIGO_INTERNO').IsNull;
+        if LRow.TieneCodigoInterno then
+          LRow.CodigoInterno := LQuery.FieldByName('CODIGO_INTERNO').AsString;
+        LRow.Nombre := LQuery.FieldByName('NOMBRE').AsString;
+        LRow.TieneDireccion := not LQuery.FieldByName('DIRECCION').IsNull;
+        if LRow.TieneDireccion then
+          LRow.Direccion := LQuery.FieldByName('DIRECCION').AsString;
+        LRow.TieneTelefono := not LQuery.FieldByName('TELEFONO').IsNull;
+        if LRow.TieneTelefono then
+          LRow.Telefono := LQuery.FieldByName('TELEFONO').AsString;
+        LRow.TieneCorreoElectronico := not LQuery.FieldByName('CORREO_ELECTRONICO').IsNull;
+        if LRow.TieneCorreoElectronico then
+          LRow.CorreoElectronico := LQuery.FieldByName('CORREO_ELECTRONICO').AsString;
+        LRow.Activo := LQuery.FieldByName('ACTIVO').AsInteger <> 0;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TProveedorRepository.CountBySearch(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text := 'SELECT COUNT(*) AS CANTIDAD FROM PROVEEDOR'
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD FROM PROVEEDOR ' +
+        'WHERE (UPPER(NIT) LIKE :search) OR (UPPER(NOMBRE) LIKE :search) OR (UPPER(CORREO_ELECTRONICO) LIKE :search)';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
   finally
     LQuery.Free;
   end;

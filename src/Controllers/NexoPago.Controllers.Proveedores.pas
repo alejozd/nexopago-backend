@@ -27,7 +27,8 @@ type
       const [MVCFromQueryString('page', 1)] APage: Integer;
       const [MVCFromQueryString('rows', 20)] ARows: Integer;
       const [MVCFromQueryString('sortField', '')] ASortField: String;
-      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
+      const [MVCFromQueryString('sortOrder', 1)] ASortOrder: Integer;
+      const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TProveedorDTO>;
 
     [MVCSwagSummary('Proveedores', 'Crea un proveedor')]
     [MVCPath('/proveedores')]
@@ -72,9 +73,9 @@ begin
 end;
 
 function TProveedoresController.GetProveedores(const APage, ARows: Integer; const ASortField: String;
-  const ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
+  const ASortOrder: Integer; const ASearch: String): TPagedResultDTO<TProveedorDTO>;
 begin
-  Result := fProveedoresService.GetPaged(APage, ARows, ASortField, ASortOrder);
+  Result := fProveedoresService.GetPaged(APage, ARows, ASortField, ASearch, ASortOrder);
 end;
 
 function TProveedoresController.CreateProveedor(const ADatos: TProveedorCreateDTO): IMVCResponse;

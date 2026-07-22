@@ -9,7 +9,8 @@ uses
 type
   IOrdenesService = interface
     ['{6F2C1A3E-6B9A-4E9A-9E2B-2E6D9E7F0A11}']
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    // ASearch filtra por Numero de Orden, Proveedor, Proyecto o Solicitud.
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
     // Cabecera + lineas en una unica transaccion FireDAC explicita. Retorna
@@ -71,7 +72,7 @@ type
       AProductoRepository: IProductoRepository; ARecibosRepository: IRecibosRepository;
       AHelisaPedidosRepository: IHelisaPedidosRepository;
       AEntradasMercanciaRepository: IEntradasMercanciaRepository);
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
     function GetByID(const AID: Int64): TOrdenCompraFullDTO;
     function CrearOrden(const ADatos: TOrdenCompraCreateDTO; const AUsuarioID: Int64): Int64;
@@ -126,22 +127,28 @@ begin
   Result := LColumn + ' ' + LDirection;
 end;
 
-function TOrdenesService.GetPaged(const APage, ARows: Integer; const ASortField: String;
+function TOrdenesService.GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
   const ASortOrder: Integer): TPagedResultDTO<TOrdenCompraDTO>;
 var
   LRows: TArray<TOrdenCompraListRow>;
   LRow: TOrdenCompraListRow;
   LDTO: TOrdenCompraDTO;
   LOffset, LLimit: Integer;
+  LSearch: String;
 begin
   LLimit := Max(ARows, 1);
   LOffset := (Max(APage, 1) - 1) * LLimit;
+  // UpperCase porque las columnas de busqueda no tienen collation
+  // case-insensitive: un LIKE normal es sensible a mayusculas.
+  LSearch := UpperCase(Trim(ASearch));
+  if LSearch <> '' then
+    LSearch := '%' + LSearch + '%';
 
   Result := TPagedResultDTO<TOrdenCompraDTO>.Create;
   try
-    Result.TotalRecords := fOrdenesRepository.Count;
+    Result.TotalRecords := fOrdenesRepository.CountBySearch(LSearch);
 
-    LRows := fOrdenesRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder));
+    LRows := fOrdenesRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder), LSearch);
     for LRow in LRows do
     begin
       LDTO := TOrdenCompraDTO.Create;

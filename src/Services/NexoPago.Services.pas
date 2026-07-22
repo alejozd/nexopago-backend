@@ -15,7 +15,8 @@ type
   IProveedoresService = interface
     ['{E6BD042D-81E6-41EE-ADD9-6912A0C992B9}']
     function CountProveedores: Int64;
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    // ASearch filtra por NIT, Nombre o Correo Electronico.
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
     // Retorna el PROVEEDOR_ID recien creado.
     function CrearProveedor(const ADatos: TProveedorCreateDTO; const AUsuarioID: Int64): Int64;
@@ -83,12 +84,11 @@ type
   TProveedoresService = class(TInterfacedObject, IProveedoresService)
   private
     fRepository: IProveedorRepository;
-    function BuildListRQL(const APage, ARows: Integer; const ASortField: String;
-      const ASortOrder: Integer): String;
+    function BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
   public
     constructor Create(ARepository: IProveedorRepository);
     function CountProveedores: Int64;
-    function GetPaged(const APage, ARows: Integer; const ASortField: String;
+    function GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
       const ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
     function CrearProveedor(const ADatos: TProveedorCreateDTO; const AUsuarioID: Int64): Int64;
     procedure ActualizarProveedor(const AProveedorID: Int64; const ADatos: TProveedorCreateDTO;
@@ -134,69 +134,72 @@ begin
   Result := fRepository.Count;
 end;
 
-function TProveedoresService.BuildListRQL(const APage, ARows: Integer; const ASortField: String;
-  const ASortOrder: Integer): String;
+function TProveedoresService.BuildSortColumnSQL(const ASortField: String; const ASortOrder: Integer): String;
 const
-  // Whitelist de columnas ordenables desde la API (nombres de propiedad en
-  // minusculas: asi es como el RQL de ActiveRecord las resuelve por defecto).
-  cAllowedSortFields: array [0 .. 3] of String = ('nombre', 'nit', 'activo', 'id');
-  cDefaultSortField = 'nombre';
+  cDefaultColumn = 'NOMBRE';
 var
-  LSortField, LSortSign: String;
-  I: Integer;
-  LFound: Boolean;
+  LField, LColumn, LDirection: String;
 begin
-  LSortField := LowerCase(Trim(ASortField));
-  LFound := False;
-  for I := Low(cAllowedSortFields) to High(cAllowedSortFields) do
-  begin
-    if cAllowedSortFields[I] = LSortField then
-    begin
-      LFound := True;
-      Break;
-    end;
-  end;
-  if not LFound then
-    LSortField := cDefaultSortField;
+  LField := LowerCase(Trim(ASortField));
+  if LField = 'nit' then
+    LColumn := 'NIT'
+  else if LField = 'nombre' then
+    LColumn := 'NOMBRE'
+  else if LField = 'activo' then
+    LColumn := 'ACTIVO'
+  else if LField = 'id' then
+    LColumn := 'PROVEEDOR_ID'
+  else
+    LColumn := cDefaultColumn;
 
   if ASortOrder < 0 then
-    LSortSign := '-'
+    LDirection := 'DESC'
   else
-    LSortSign := '+';
+    LDirection := 'ASC';
 
-  Result := Format('sort(%s%s);limit(%d,%d)',
-    [LSortSign, LSortField, (Max(APage, 1) - 1) * Max(ARows, 1), Max(ARows, 1)]);
+  Result := LColumn + ' ' + LDirection;
 end;
 
-function TProveedoresService.GetPaged(const APage, ARows: Integer; const ASortField: String;
+function TProveedoresService.GetPaged(const APage, ARows: Integer; const ASortField, ASearch: String;
   const ASortOrder: Integer): TPagedResultDTO<TProveedorDTO>;
 var
-  LEntities: TObjectList<TProveedor>;
-  LEntity: TProveedor;
+  LRows: TArray<TProveedorListRow>;
+  LRow: TProveedorListRow;
   LDTO: TProveedorDTO;
+  LOffset, LLimit: Integer;
+  LSearch: String;
 begin
+  LLimit := Max(ARows, 1);
+  LOffset := (Max(APage, 1) - 1) * LLimit;
+  // UpperCase porque las columnas de busqueda no tienen collation
+  // case-insensitive: un LIKE normal es sensible a mayusculas.
+  LSearch := UpperCase(Trim(ASearch));
+  if LSearch <> '' then
+    LSearch := '%' + LSearch + '%';
+
   Result := TPagedResultDTO<TProveedorDTO>.Create;
   try
-    Result.TotalRecords := fRepository.Count;
+    Result.TotalRecords := fRepository.CountBySearch(LSearch);
 
-    LEntities := fRepository.SelectRQL(BuildListRQL(APage, ARows, ASortField, ASortOrder), Max(ARows, 1));
-    try
-      for LEntity in LEntities do
-      begin
-        LDTO := TProveedorDTO.Create;
-        LDTO.ID := LEntity.ID.ValueOrDefault;
-        LDTO.Nit := LEntity.Nit;
-        LDTO.CodigoHelisa := LEntity.CodigoHelisa;
-        LDTO.CodigoInterno := LEntity.CodigoInterno;
-        LDTO.Nombre := LEntity.Nombre;
-        LDTO.Direccion := LEntity.Direccion;
-        LDTO.Telefono := LEntity.Telefono;
-        LDTO.CorreoElectronico := LEntity.CorreoElectronico;
-        LDTO.Activo := LEntity.Activo;
-        Result.Data.Add(LDTO);
-      end;
-    finally
-      LEntities.Free;
+    LRows := fRepository.GetListado(LOffset, LLimit, BuildSortColumnSQL(ASortField, ASortOrder), LSearch);
+    for LRow in LRows do
+    begin
+      LDTO := TProveedorDTO.Create;
+      LDTO.ID := LRow.ProveedorID;
+      LDTO.Nit := LRow.Nit;
+      if LRow.TieneCodigoHelisa then
+        LDTO.CodigoHelisa := LRow.CodigoHelisa;
+      if LRow.TieneCodigoInterno then
+        LDTO.CodigoInterno := LRow.CodigoInterno;
+      LDTO.Nombre := LRow.Nombre;
+      if LRow.TieneDireccion then
+        LDTO.Direccion := LRow.Direccion;
+      if LRow.TieneTelefono then
+        LDTO.Telefono := LRow.Telefono;
+      if LRow.TieneCorreoElectronico then
+        LDTO.CorreoElectronico := LRow.CorreoElectronico;
+      LDTO.Activo := LRow.Activo;
+      Result.Data.Add(LDTO);
     end;
   except
     Result.Free;
