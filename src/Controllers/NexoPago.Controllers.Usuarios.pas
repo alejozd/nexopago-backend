@@ -57,8 +57,12 @@ type
     [MVCHTTPMethod([httpPUT])]
     function CambiarEstado(const id: Int64; const [MVCFromQueryString('activo')] AActivo: Boolean): IMVCResponse;
 
+    // Permiso propio (no USUARIOS_EDITAR): resetear la clave de otro usuario
+    // es mas sensible que editar sus datos basicos (da capacidad de tomar
+    // control de la cuenta) -- mismo criterio que ya separa USUARIOS_ESTADO
+    // de USUARIOS_EDITAR.
     [MVCSwagSummary('Usuarios', 'Resetea la contraseña de un usuario (accion de administrador)')]
-    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_EDITAR')]
+    [TMVCRequiresPermiso('ADMINISTRACION', 'USUARIOS_PASSWORD')]
     [MVCPath('/usuarios/($id)/password')]
     [MVCHTTPMethod([httpPUT])]
     function CambiarPassword(const id: Int64; const [MVCFromBody] ADatos: TCambiarPasswordDTO): IMVCResponse;
