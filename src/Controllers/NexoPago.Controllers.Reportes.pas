@@ -7,6 +7,7 @@ uses
   MVCFramework.Commons,
   MVCFramework.Swagger.Commons,
   NexoPago.Services.Reportes,
+  NexoPago.Security.PermisoAttribute,
   NexoPago.DTOs;
 
 type
@@ -18,8 +19,11 @@ type
     [MVCInject]
     constructor Create(AReportesService: IReportesService); reintroduce;
 
-    // Ordenes con saldo pendiente + antiguedad (3.8).
+    // Ordenes con saldo pendiente + antiguedad (3.8). Permiso independiente
+    // (sin PERMISO_REQUISITO): quien crea ordenes/entradas/recibos puede o
+    // no tener acceso a este reporte, no esta ligado a esos otros permisos.
     [MVCSwagSummary('Reportes', 'Cartera: ordenes con saldo pendiente y antiguedad')]
+    [TMVCRequiresPermiso('CHIPIS', 'REPORTES_CARTERA_LEER')]
     [MVCPath('/cartera')]
     [MVCHTTPMethod([httpGET])]
     function GetCartera(
@@ -30,6 +34,7 @@ type
 
     // Total por proveedor (3.8).
     [MVCSwagSummary('Reportes', 'Cartera agrupada por proveedor')]
+    [TMVCRequiresPermiso('CHIPIS', 'REPORTES_CARTERA_LEER')]
     [MVCPath('/cartera/por-proveedor')]
     [MVCHTTPMethod([httpGET])]
     function GetCarteraPorProveedor(
@@ -40,6 +45,7 @@ type
 
     // Tarjetas KPI de la pantalla de Reportes de Cartera.
     [MVCSwagSummary('Reportes', 'Resumen de cartera: total pendiente, orden mas antigua, proveedor con mayor deuda')]
+    [TMVCRequiresPermiso('CHIPIS', 'REPORTES_CARTERA_LEER')]
     [MVCPath('/cartera/resumen')]
     [MVCHTTPMethod([httpGET])]
     function GetCarteraResumen: TCarteraResumenDTO;
