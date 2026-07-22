@@ -255,6 +255,8 @@ begin
       LDTO.ModuloNombre := LRow.ModuloNombre;
       LDTO.Accion := LRow.Accion;
       LDTO.Asignado := LEstaAsignado;
+      if LRow.RequierePermisoID > 0 then
+        LDTO.RequierePermisoID := LRow.RequierePermisoID;
       Result.Add(LDTO);
     end;
   except
@@ -266,14 +268,22 @@ end;
 procedure TPermisosService.AsignarPermisos(const APerfilID: Int64; const ADatos: TAsignarPermisosDTO);
 var
   LConn: TFDConnection;
+  LPermisoIdsExpandido: TArray<Int64>;
 begin
   if not fPerfilRepository.Exists(APerfilID) then
     raise EMVCException.Create(HTTP_STATUS.NotFound, 'Perfil no encontrado');
 
+  // Si se asigna un permiso que depende de otro (ver PERMISO.REQUIERE_PERMISO_ID,
+  // ej. ORDENES_EDITAR depende de ORDENES_LEER), el requerido se agrega
+  // automaticamente: el frontend ya lo refleja en el checkbox, pero esta
+  // expansion es la que hace cumplir la regla de verdad (cualquier cliente,
+  // no solo la UI).
+  LPermisoIdsExpandido := fPermisoRepository.ExpandirConRequeridos(ADatos.PermisoIds);
+
   LConn := TMVCActiveRecord.CurrentConnection;
   LConn.StartTransaction;
   try
-    fPerfilRepository.SetPermisoIds(APerfilID, ADatos.PermisoIds);
+    fPerfilRepository.SetPermisoIds(APerfilID, LPermisoIdsExpandido);
     LConn.Commit;
   except
     LConn.Rollback;
