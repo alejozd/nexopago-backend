@@ -32,6 +32,14 @@ type
     // "hubo una entrada/recibo, cuando" sin exponer numero ERP/proveedor/tipo de
     // pago de cada documento a un usuario sin el permiso fino de ese modulo.
     function GetEstadoDocumentos(const AOrdenID: Int64): TOrdenEstadoDocumentosDTO;
+    // Listado angosto (sin datos financieros/proveedor mas alla del nombre)
+    // de ordenes en estado receptible, para el flujo de Registrar Entrada de
+    // un perfil que NO tiene ORDENES_LEER (ver
+    // NexoPago.Controllers.Ordenes.GetPendientesRecepcion).
+    function GetPendientesRecepcion(const APage, ARows: Integer; const ASearch: String): TPagedResultDTO<TOrdenPendienteRecepcionDTO>;
+    // Detalle angosto (solo numeroOrden + lineas con saldo pendiente) de una
+    // orden, para el mismo flujo de Registrar Entrada.
+    function GetDetalleRecepcion(const AOrdenID: Int64): TOrdenRecepcionDTO;
   end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);
@@ -88,6 +96,8 @@ type
     procedure AnularOrden(const AOrdenID: Int64; const AMotivo: String; const AUsuarioID: Int64);
     function GetResumen: TOrdenesResumenDTO;
     function GetEstadoDocumentos(const AOrdenID: Int64): TOrdenEstadoDocumentosDTO;
+    function GetPendientesRecepcion(const APage, ARows: Integer; const ASearch: String): TPagedResultDTO<TOrdenPendienteRecepcionDTO>;
+    function GetDetalleRecepcion(const AOrdenID: Int64): TOrdenRecepcionDTO;
   end;
 
 constructor TOrdenesService.Create(AOrdenesRepository: IOrdenesRepository;
@@ -589,6 +599,84 @@ begin
   Result.CantidadRecibos := LRecibos.Cantidad;
   if Result.TieneRecibos then
     Result.FechaUltimoRecibo := LRecibos.FechaUltima;
+end;
+
+function TOrdenesService.GetPendientesRecepcion(const APage, ARows: Integer;
+  const ASearch: String): TPagedResultDTO<TOrdenPendienteRecepcionDTO>;
+var
+  LRows: TArray<TOrdenCompraListRow>;
+  LRow: TOrdenCompraListRow;
+  LDTO: TOrdenPendienteRecepcionDTO;
+  LOffset, LLimit: Integer;
+  LSearch: String;
+begin
+  LLimit := Max(ARows, 1);
+  LOffset := (Max(APage, 1) - 1) * LLimit;
+  LSearch := UpperCase(Trim(ASearch));
+  if LSearch <> '' then
+    LSearch := '%' + LSearch + '%';
+
+  Result := TPagedResultDTO<TOrdenPendienteRecepcionDTO>.Create;
+  try
+    Result.TotalRecords := fOrdenesRepository.CountPendientesRecepcion(LSearch);
+
+    LRows := fOrdenesRepository.GetListadoPendientesRecepcion(LOffset, LLimit, LSearch);
+    for LRow in LRows do
+    begin
+      LDTO := TOrdenPendienteRecepcionDTO.Create;
+      LDTO.ID := LRow.OrdenID;
+      LDTO.NumeroOrden := LRow.NumeroOrden;
+      LDTO.ProveedorNombre := LRow.ProveedorNombre;
+      LDTO.FechaOrden := LRow.FechaOrden;
+      LDTO.Estado := LRow.Estado;
+      // NOTA: LRow.ValorTotal NO se copia al DTO: este listado nunca expone
+      // montos a un perfil con solo ENTRADAS_REGISTRAR.
+      Result.Data.Add(LDTO);
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+function TOrdenesService.GetDetalleRecepcion(const AOrdenID: Int64): TOrdenRecepcionDTO;
+var
+  LOrden: TOrdenCompra;
+  LDetalle: TOrdenCompraDetalle;
+  LProducto: TProducto;
+  LLineaDTO: TOrdenRecepcionLineaDTO;
+begin
+  LOrden := fOrdenesRepository.GetByPK(AOrdenID, False);
+  if LOrden = nil then
+    raise EMVCException.Create(HTTP_STATUS.NotFound, 'Orden no encontrada');
+  try
+    Result := TOrdenRecepcionDTO.Create;
+    try
+      Result.NumeroOrden := LOrden.NumeroOrden;
+      for LDetalle in LOrden.Detalles do
+      begin
+        LLineaDTO := TOrdenRecepcionLineaDTO.Create;
+        LLineaDTO.ID := LDetalle.ID.ValueOrDefault;
+        LProducto := fProductoRepository.GetByPK(LDetalle.ProductoID, False);
+        try
+          if Assigned(LProducto) then
+          begin
+            LLineaDTO.ProductoDescripcion := LProducto.Descripcion;
+            LLineaDTO.ProductoCodigoInterno := LProducto.CodigoInterno;
+          end;
+        finally
+          LProducto.Free;
+        end;
+        LLineaDTO.SaldoPendiente := LDetalle.Cantidad - fEntradasMercanciaRepository.GetCantidadRecibida(LDetalle.ID.ValueOrDefault);
+        Result.Detalles.Add(LLineaDTO);
+      end;
+    except
+      Result.Free;
+      raise;
+    end;
+  finally
+    LOrden.Free;
+  end;
 end;
 
 procedure RegisterOrdenesServices(Container: IMVCServiceContainer);

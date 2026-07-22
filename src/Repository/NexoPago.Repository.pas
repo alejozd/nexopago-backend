@@ -204,6 +204,13 @@ type
     // orden anulada libera el saldo que habia tomado (regla confirmada).
     function ObtenerConsumoPedidoHelisa(const ANumeroPedidoHelisa: String;
       const AOrdenIDExcluir: Int64 = 0): TArray<TConsumoPedidoLineaRow>;
+    // Ordenes en estado receptible (aun pueden recibir mercancia), SIN
+    // exponer ValorTotal/montos a quien solo tiene ENTRADAS_REGISTRAR. Mismo
+    // filtro de estados que ya usa GetResumen (BORRADOR/PENDIENTE/
+    // PARCIALMENTE_RECIBIDA). El WHERE de estado es fijo, no parametrizable
+    // por el cliente, para que esta via no pueda listar otras ordenes.
+    function GetListadoPendientesRecepcion(const AOffset, ALimit: Integer; const ASearch: String): TArray<TOrdenCompraListRow>;
+    function CountPendientesRecepcion(const ASearch: String): Int64;
   end;
 
   TOrdenesRepository = class(TMVCRepository<TOrdenCompra>, IOrdenesRepository)
@@ -213,6 +220,8 @@ type
     function GetResumen: TOrdenesResumenRow;
     function ObtenerConsumoPedidoHelisa(const ANumeroPedidoHelisa: String;
       const AOrdenIDExcluir: Int64 = 0): TArray<TConsumoPedidoLineaRow>;
+    function GetListadoPendientesRecepcion(const AOffset, ALimit: Integer; const ASearch: String): TArray<TOrdenCompraListRow>;
+    function CountPendientesRecepcion(const ASearch: String): Int64;
   end;
 
   // Fila plana para el listado paginado de recibos: cabecera + numero de
@@ -765,6 +774,109 @@ begin
     Result := LRows.ToArray;
   finally
     LRows.Free;
+  end;
+end;
+
+function TOrdenesRepository.GetListadoPendientesRecepcion(const AOffset, ALimit: Integer;
+  const ASearch: String): TArray<TOrdenCompraListRow>;
+var
+  LQuery: TFDQuery;
+  LRows: TList<TOrdenCompraListRow>;
+  LRow: TOrdenCompraListRow;
+begin
+  LRows := TList<TOrdenCompraListRow>.Create;
+  try
+    LQuery := TFDQuery.Create(nil);
+    try
+      LQuery.Connection := GetConnection;
+      // Mismo SQL que GetListado, con el WHERE de estado FIJO (no viene del
+      // cliente): un perfil con solo ENTRADAS_REGISTRAR nunca debe poder
+      // listar ordenes en otros estados por esta via.
+      if ASearch = '' then
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
+          '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
+          '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
+          'FROM ORDEN_COMPRA OC ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
+          'WHERE OC.ESTADO IN (''BORRADOR'', ''PENDIENTE'', ''PARCIALMENTE_RECIBIDA'') ' +
+          'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
+          'ORDER BY OC.FECHA_ORDEN DESC'
+      else
+        LQuery.SQL.Text :=
+          'SELECT FIRST :flimit SKIP :foffset ' +
+          '  OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, ' +
+          '  P.NOMBRE AS PROVEEDOR_NOMBRE, COALESCE(SUM(D.SUBTOTAL), 0) AS VALOR_TOTAL, ' +
+          '  COALESCE(OC.PROYECTO, '''') AS PROYECTO, COALESCE(OC.SOLICITUD, '''') AS SOLICITUD ' +
+          'FROM ORDEN_COMPRA OC ' +
+          'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+          'LEFT JOIN ORDEN_COMPRA_DETALLE D ON D.ORDEN_ID = OC.ORDEN_ID ' +
+          'WHERE OC.ESTADO IN (''BORRADOR'', ''PENDIENTE'', ''PARCIALMENTE_RECIBIDA'') ' +
+          '  AND ((UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+          '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+          '   OR (UPPER(COALESCE(OC.PROYECTO, '''')) LIKE :search) ' +
+          '   OR (UPPER(COALESCE(OC.SOLICITUD, '''')) LIKE :search)) ' +
+          'GROUP BY OC.ORDEN_ID, OC.NUMERO_ORDEN, OC.FECHA_ORDEN, OC.ESTADO, P.NOMBRE, OC.PROYECTO, OC.SOLICITUD ' +
+          'ORDER BY OC.FECHA_ORDEN DESC';
+      LQuery.ParamByName('flimit').AsInteger := ALimit;
+      LQuery.ParamByName('foffset').AsInteger := AOffset;
+      if ASearch <> '' then
+        LQuery.ParamByName('search').AsString := ASearch;
+      LQuery.Open;
+      while not LQuery.Eof do
+      begin
+        LRow.OrdenID := LQuery.FieldByName('ORDEN_ID').AsLargeInt;
+        LRow.NumeroOrden := LQuery.FieldByName('NUMERO_ORDEN').AsString;
+        LRow.FechaOrden := LQuery.FieldByName('FECHA_ORDEN').AsDateTime;
+        LRow.Estado := LQuery.FieldByName('ESTADO').AsString;
+        LRow.ProveedorNombre := LQuery.FieldByName('PROVEEDOR_NOMBRE').AsString;
+        LRow.ValorTotal := LQuery.FieldByName('VALOR_TOTAL').AsCurrency;
+        LRow.Proyecto := LQuery.FieldByName('PROYECTO').AsString;
+        LRow.Solicitud := LQuery.FieldByName('SOLICITUD').AsString;
+        LRows.Add(LRow);
+        LQuery.Next;
+      end;
+    finally
+      LQuery.Free;
+    end;
+    Result := LRows.ToArray;
+  finally
+    LRows.Free;
+  end;
+end;
+
+function TOrdenesRepository.CountPendientesRecepcion(const ASearch: String): Int64;
+var
+  LQuery: TFDQuery;
+begin
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := GetConnection;
+    if ASearch = '' then
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ORDEN_COMPRA OC ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'WHERE OC.ESTADO IN (''BORRADOR'', ''PENDIENTE'', ''PARCIALMENTE_RECIBIDA'')'
+    else
+    begin
+      LQuery.SQL.Text :=
+        'SELECT COUNT(*) AS CANTIDAD ' +
+        'FROM ORDEN_COMPRA OC ' +
+        'INNER JOIN PROVEEDOR P ON P.PROVEEDOR_ID = OC.PROVEEDOR_ID ' +
+        'WHERE OC.ESTADO IN (''BORRADOR'', ''PENDIENTE'', ''PARCIALMENTE_RECIBIDA'') ' +
+        '  AND ((UPPER(OC.NUMERO_ORDEN) LIKE :search) ' +
+        '   OR (UPPER(P.NOMBRE) LIKE :search) ' +
+        '   OR (UPPER(COALESCE(OC.PROYECTO, '''')) LIKE :search) ' +
+        '   OR (UPPER(COALESCE(OC.SOLICITUD, '''')) LIKE :search))';
+      LQuery.ParamByName('search').AsString := ASearch;
+    end;
+    LQuery.Open;
+    Result := LQuery.FieldByName('CANTIDAD').AsLargeInt;
+  finally
+    LQuery.Free;
   end;
 end;
 

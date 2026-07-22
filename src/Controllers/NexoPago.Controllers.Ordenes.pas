@@ -43,6 +43,20 @@ type
     [MVCHTTPMethod([httpGET])]
     function GetResumen: TOrdenesResumenDTO;
 
+    // Ordenes en estado receptible, listado angosto sin datos financieros
+    // (para Registrar Entrada de un perfil sin ORDENES_LEER). Debe declararse
+    // ANTES de GetOrdenByID (mismo motivo que GetResumen, ver comentario
+    // arriba): /ordenes/($id) capturaria "pendientes-recepcion" como id si se
+    // declara despues.
+    [MVCSwagSummary('Ordenes', 'Ordenes en estado receptible, listado angosto sin datos financieros (para Registrar Entrada)')]
+    [TMVCRequiresPermiso('CHIPIS', 'ENTRADAS_REGISTRAR')]
+    [MVCPath('/ordenes/pendientes-recepcion')]
+    [MVCHTTPMethod([httpGET])]
+    function GetPendientesRecepcion(
+      const [MVCFromQueryString('page', 1)] APage: Integer;
+      const [MVCFromQueryString('rows', 20)] ARows: Integer;
+      const [MVCFromQueryString('search', '')] ASearch: String): TPagedResultDTO<TOrdenPendienteRecepcionDTO>;
+
     // Detalle completo: cabecera + lineas, cada una con su SUBTOTAL real
     // (COMPUTED BY en Firebird).
     [MVCSwagSummary('Ordenes', 'Detalle de una orden de compra (cabecera + lineas)')]
@@ -50,6 +64,15 @@ type
     [MVCPath('/ordenes/($id)')]
     [MVCHTTPMethod([httpGET])]
     function GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
+
+    // Detalle angosto de una orden para Registrar Entrada: solo lineas y
+    // saldo pendiente. Protegido por ENTRADAS_REGISTRAR (NO ORDENES_LEER).
+    // 3 segmentos, no colisiona con /ordenes/($id) de 2 segmentos.
+    [MVCSwagSummary('Ordenes', 'Detalle angosto de una orden para Registrar Entrada: solo lineas y saldo pendiente')]
+    [TMVCRequiresPermiso('CHIPIS', 'ENTRADAS_REGISTRAR')]
+    [MVCPath('/ordenes/($id)/detalle-recepcion')]
+    [MVCHTTPMethod([httpGET])]
+    function GetDetalleRecepcion(const id: Int64): TOrdenRecepcionDTO;
 
     // Estado agregado (conteo/fecha) de entradas y recibos de una orden, sin
     // exponer el detalle de cada documento (ver TOrdenesService.GetEstadoDocumentos).
@@ -107,9 +130,20 @@ begin
   Result := fOrdenesService.GetResumen;
 end;
 
+function TOrdenesController.GetPendientesRecepcion(const APage, ARows: Integer;
+  const ASearch: String): TPagedResultDTO<TOrdenPendienteRecepcionDTO>;
+begin
+  Result := fOrdenesService.GetPendientesRecepcion(APage, ARows, ASearch);
+end;
+
 function TOrdenesController.GetOrdenByID(const id: Int64): TOrdenCompraFullDTO;
 begin
   Result := fOrdenesService.GetByID(id);
+end;
+
+function TOrdenesController.GetDetalleRecepcion(const id: Int64): TOrdenRecepcionDTO;
+begin
+  Result := fOrdenesService.GetDetalleRecepcion(id);
 end;
 
 function TOrdenesController.GetEstadoDocumentos(const id: Int64): TOrdenEstadoDocumentosDTO;

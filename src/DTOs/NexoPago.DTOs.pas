@@ -282,6 +282,62 @@ type
     property Detalles: TObjectList<TOrdenCompraDetalleDTO> read fDetalles;
   end;
 
+  // Fila angosta para elegir una orden a la que registrar una entrada, SIN
+  // datos financieros (ValorTotal/MontoPagado) ni de proveedor mas alla del
+  // nombre (que hace falta para identificar la orden correcta, no es un dato
+  // sensible). Endpoint: GET /ordenes/pendientes-recepcion, protegido solo
+  // por CHIPIS:ENTRADAS_REGISTRAR (NO por ORDENES_LEER, ver
+  // NexoPago.Controllers.Ordenes.GetPendientesRecepcion).
+  [MVCNameCase(ncCamelCase)]
+  TOrdenPendienteRecepcionDTO = class
+  private
+    fID: Int64;
+    fNumeroOrden: String;
+    fProveedorNombre: String;
+    fFechaOrden: TDate;
+    fEstado: String;
+  public
+    property ID: Int64 read fID write fID;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    property ProveedorNombre: String read fProveedorNombre write fProveedorNombre;
+    property FechaOrden: TDate read fFechaOrden write fFechaOrden;
+    property Estado: String read fEstado write fEstado;
+  end;
+
+  // Linea de detalle SOLO con lo necesario para el formulario de Registrar
+  // Entrada (producto + saldo pendiente). Nada de precios/subtotales.
+  [MVCNameCase(ncCamelCase)]
+  TOrdenRecepcionLineaDTO = class
+  private
+    fID: Int64;
+    fProductoDescripcion: String;
+    fProductoCodigoInterno: NullableString;
+    fSaldoPendiente: Currency;
+  public
+    property ID: Int64 read fID write fID;
+    property ProductoDescripcion: String read fProductoDescripcion write fProductoDescripcion;
+    property ProductoCodigoInterno: NullableString read fProductoCodigoInterno write fProductoCodigoInterno;
+    property SaldoPendiente: Currency read fSaldoPendiente write fSaldoPendiente;
+  end;
+
+  // Respuesta de GET /ordenes/(id)/detalle-recepcion: solo numeroOrden +
+  // lineas con saldo pendiente. Reemplaza a TOrdenCompraFullDTO para el flujo
+  // de Registrar Entrada, que NUNCA necesita proveedor/montos/observaciones/
+  // trazabilidad -- ver EntradaFormDialog.tsx en el frontend, que ya solo usa
+  // esos dos campos de la respuesta completa.
+  [MVCNameCase(ncCamelCase)]
+  TOrdenRecepcionDTO = class
+  private
+    fNumeroOrden: String;
+    fDetalles: TObjectList<TOrdenRecepcionLineaDTO>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property NumeroOrden: String read fNumeroOrden write fNumeroOrden;
+    [MVCListOf(TOrdenRecepcionLineaDTO)]
+    property Detalles: TObjectList<TOrdenRecepcionLineaDTO> read fDetalles;
+  end;
+
   // Entrada de POST /api/ordenes: una linea nueva.
   [MVCNameCase(ncCamelCase)]
   TOrdenCompraLineaCreateDTO = class
@@ -991,6 +1047,18 @@ destructor TEmpresaActivaConfigDTO.Destroy;
 begin
   fEmpresaActiva.Free;
   fHistorial.Free;
+  inherited;
+end;
+
+constructor TOrdenRecepcionDTO.Create;
+begin
+  inherited Create;
+  fDetalles := TObjectList<TOrdenRecepcionLineaDTO>.Create(True);
+end;
+
+destructor TOrdenRecepcionDTO.Destroy;
+begin
+  fDetalles.Free;
   inherited;
 end;
 
