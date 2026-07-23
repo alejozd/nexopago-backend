@@ -5,7 +5,6 @@ interface
 uses
   System.SysUtils,
   System.Classes,
-  System.DateUtils,
   Web.HTTPApp,
   MVCFramework,
   MVCFramework.Commons,
@@ -21,6 +20,7 @@ uses
   MVCFramework.SQLGenerators.Firebird,
   NexoPago.Config,
   NexoPago.Repository,
+  NexoPago.Security.JWTClaims,
   NexoPago.Services.Auth,
   NexoPago.Controllers.Ordenes,
   NexoPago.Controllers.Health,
@@ -106,13 +106,11 @@ begin
   // MVCFramework.Middleware.JWT.pas, ambos OnBeforeRouting).
   fMVC.AddMiddleware(TMVCActiveRecordMiddleware.Create(CON_DEF_NAME));
 
-  LClaimsSetup := procedure(const JWT: TJWT)
-    begin
-      JWT.Claims.Issuer := 'NexoPago';
-      JWT.Claims.ExpirationTime := Now + OneHour;
-      JWT.Claims.NotBefore := Now - OneMinute * 5;
-      JWT.Claims.IssuedAt := Now;
-    end;
+  // Unica fuente de verdad para iss/exp/nbf/iat: compartida con el refresh
+  // silencioso de sesion (ver NexoPago.Security.JWTClaims y
+  // TAuthTokenService.GenerateToken en NexoPago.Services.Auth) para que
+  // ambos caminos emitan tokens con exactamente el mismo tiempo de vida.
+  LClaimsSetup := SetupNexoPagoJWTClaims;
 
   // NOTA: el ultimo parametro (AHMACAlgorithm) se guarda en FHMACAlgorithm
   // pero MVCFramework.Middleware.JWT.pas (3.4.3) nunca lo lee: cada llamada
@@ -125,7 +123,13 @@ begin
     dotEnv.Env('JWT_SECRET', ''), // '' nunca se usa: dotEnv.RequireKeys revienta el arranque si falta
     '/api/auth/login',
     [TJWTCheckableClaim.ExpirationTime, TJWTCheckableClaim.NotBefore, TJWTCheckableClaim.IssuedAt],
-    300
+    // Antes 300 (el default del framework, nunca ajustado a proposito): con
+    // un solo servidor y sin skew de reloj distribuido que tolerar, 300s
+    // dejaba un token "expirado" de 1h seguir siendo aceptado hasta 65 min
+    // -contradice el objetivo mismo de la sesion con vencimiento estricto que
+    // el aviso de expiracion del frontend asume. 30s alcanza para latencia de
+    // red/cola de requests en el instante exacto del corte, sin regalar 5 min.
+    30
   ));
 end;
 

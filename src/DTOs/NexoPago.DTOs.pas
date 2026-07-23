@@ -1066,6 +1066,17 @@ type
     property CodigoEmpresa: Integer read fCodigoEmpresa write fCodigoEmpresa;
   end;
 
+  // Respuesta de POST /api/auth/refresh: un JWT nuevo, con la misma vigencia
+  // (1h) y exactamente los mismos claims que el token actual del usuario
+  // (ver TAuthController.Refresh / TAuthTokenService.GenerateToken).
+  [MVCNameCase(ncCamelCase)]
+  TTokenDTO = class
+  private
+    fToken: String;
+  public
+    property Token: String read fToken write fToken;
+  end;
+
 // Aqu� iremos agregando el resto de nuestras clases DTO (Data Transfer Objects).
 
 implementation

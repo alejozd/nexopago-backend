@@ -32,6 +32,20 @@ type
     procedure RegistrarUsuario(const ADatos: TUsuarioRegistroDTO);
   end;
 
+  // Emite un JWT nuevo para un usuario YA autenticado (usado por
+  // TAuthController.Refresh para renovar la sesion silenciosamente antes de
+  // que expire). Deliberadamente desacoplado de TWebContext (Controller ->
+  // Service, ver CLAUDE.md): recibe solo los datos planos del usuario, ya
+  // extraidos por el controller desde Context.LoggedUser (el JWT actual, ya
+  // validado por el middleware) -- nunca del body/query de la request. Este
+  // servicio NO decide identidad ni roles, solo los re-encodea en un token
+  // nuevo con la misma vigencia que el login (ver NexoPago.Security.JWTClaims).
+  IAuthTokenService = interface
+    ['{9C6E9C36-9A3D-4B7C-9E4C-1B2C4E5F6A7B}']
+    function GenerateToken(const AUsuarioID: Int64; const AUserName: string;
+      const ARoles: TArray<string>; const ANombre, AApellido: string): string;
+  end;
+
 procedure RegisterAuthServices(Container: IMVCServiceContainer);
 
 implementation
@@ -40,10 +54,12 @@ uses
   System.SysUtils,
   System.Rtti,
   MVCFramework.Commons,
+  MVCFramework.JWT,
   NexoPago.Entities,
   NexoPago.Security.Password,
   NexoPago.Security.CurrentUser,
-  NexoPago.Security.PermisoAttribute;
+  NexoPago.Security.PermisoAttribute,
+  NexoPago.Security.JWTClaims;
 
 { TNexoPagoAuthHandler }
 
@@ -206,9 +222,66 @@ begin
   end;
 end;
 
+{ TAuthTokenService }
+
+type
+  TAuthTokenService = class(TInterfacedObject, IAuthTokenService)
+  public
+    // Constructor explicito (aunque no reciba dependencias) -- OBLIGATORIO. El
+    // contenedor de DMVCFramework (MVCFramework.Container.CreateServiceWithDependencies)
+    // solo invoca al constructor via RTTI si TRttiUtils.GetFirstDeclaredConstructor
+    // encuentra un metodo Create DECLARADO en la clase (GetDeclaredMethods, no
+    // hereda). Sin este constructor explicito cae al fallback
+    // TRttiUtils.CreateObject(ServiceClass.QualifiedClassName), que en este
+    // build no logra resolver el tipo por RTTI ("Cannot find RTTI for ...") y
+    // rompe la creacion de TODO TAuthController (Register/GetMe/Refresh).
+    constructor Create;
+    function GenerateToken(const AUsuarioID: Int64; const AUserName: string;
+      const ARoles: TArray<string>; const ANombre, AApellido: string): string;
+  end;
+
+constructor TAuthTokenService.Create;
+begin
+  inherited Create;
+end;
+
+function TAuthTokenService.GenerateToken(const AUsuarioID: Int64; const AUserName: string;
+  const ARoles: TArray<string>; const ANombre, AApellido: string): string;
+var
+  LJWT: TJWT;
+begin
+  // Mismo secreto y misma vigencia (SetupNexoPagoJWTClaims) que el login en
+  // TMVCJWTAuthenticationMiddleware (ver NexoPago.WebModule.WebModuleCreate).
+  // Se omite el parametro AHMACAlgorithm de TJWT.Create por la misma razon
+  // documentada alli: el middleware nunca lo pasa en sus llamadas internas a
+  // TJWT.Create, asi que el algoritmo real siempre es el default (HS512) -
+  // pasar aqui algo distinto solo generaria tokens con un "alg" diferente al
+  // que el resto del sistema usa y espera.
+  LJWT := TJWT.Create(dotEnv.Env('JWT_SECRET', ''), 300);
+  try
+    SetupNexoPagoJWTClaims(LJWT);
+
+    // 'username' y 'roles' son claims reservadas por
+    // TMVCJWTAuthenticationMiddleware (ver MVCFramework.Middleware.JWT.pas):
+    // se replican aqui con el mismo nombre para que GetMe/OnAuthorization y
+    // GetCurrentUserID sigan leyendo el token refrescado exactamente igual
+    // que el emitido en el login.
+    LJWT.CustomClaims['username'] := AUserName;
+    LJWT.CustomClaims['roles'] := String.Join(',', ARoles);
+    LJWT.CustomClaims['usuarioId'] := AUsuarioID.ToString;
+    LJWT.CustomClaims['nombre'] := ANombre;
+    LJWT.CustomClaims['apellido'] := AApellido;
+
+    Result := LJWT.GetToken;
+  finally
+    LJWT.Free;
+  end;
+end;
+
 procedure RegisterAuthServices(Container: IMVCServiceContainer);
 begin
   Container.RegisterType(TRegistroService, IRegistroService, TRegistrationType.SingletonPerRequest);
+  Container.RegisterType(TAuthTokenService, IAuthTokenService, TRegistrationType.SingletonPerRequest);
 end;
 
 end.

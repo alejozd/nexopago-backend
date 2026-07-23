@@ -16,9 +16,11 @@ type
   private
     fRegistroService: IRegistroService;
     fPermisoRepository: IPermisoRepository;
+    fAuthTokenService: IAuthTokenService;
   public
     [MVCInject]
-    constructor Create(ARegistroService: IRegistroService; APermisoRepository: IPermisoRepository); reintroduce;
+    constructor Create(ARegistroService: IRegistroService; APermisoRepository: IPermisoRepository;
+      AAuthTokenService: IAuthTokenService); reintroduce;
 
     // TEMPORAL: crea el primer usuario de prueba mientras no existe una
     // pantalla de administracion. Sin proteccion JWT (OnRequest no lo exige).
@@ -37,6 +39,20 @@ type
     [MVCPath('/me')]
     [MVCHTTPMethod([httpGET])]
     function GetMe: TUsuarioMeDTO;
+
+    // Renueva silenciosamente la sesion: emite un JWT nuevo con la misma
+    // vigencia (1h) para el mismo usuario del token actual, sin exigir
+    // password de nuevo. Pensado para el aviso de "tu sesion esta por
+    // expirar" del frontend. TODOS los claims del token nuevo salen de
+    // Context.LoggedUser (el JWT actual, YA validado por el middleware antes
+    // de llegar aqui) -- jamas del body o del query string, para que nadie
+    // pueda forjar su identidad/roles a traves de este endpoint. Por eso no
+    // hay [MVCFromBody]: este endpoint no acepta ningun dato de entrada.
+    [MVCSwagSummary('Auth', 'Renueva el token JWT del usuario autenticado (sin re-enviar password)')]
+    [MVCRequiresAuthentication]
+    [MVCPath('/refresh')]
+    [MVCHTTPMethod([httpPOST])]
+    function Refresh: TTokenDTO;
   end;
 
 implementation
@@ -44,11 +60,13 @@ implementation
 uses
   System.SysUtils;
 
-constructor TAuthController.Create(ARegistroService: IRegistroService; APermisoRepository: IPermisoRepository);
+constructor TAuthController.Create(ARegistroService: IRegistroService; APermisoRepository: IPermisoRepository;
+  AAuthTokenService: IAuthTokenService);
 begin
   inherited Create;
   fRegistroService := ARegistroService;
   fPermisoRepository := APermisoRepository;
+  fAuthTokenService := AAuthTokenService;
 end;
 
 function TAuthController.Register(const ADatos: TUsuarioRegistroDTO): IMVCResponse;
@@ -75,6 +93,32 @@ begin
   end;
   if Result.ID > 0 then
     Result.Permisos := fPermisoRepository.GetPermisosDeUsuario(Result.ID);
+end;
+
+function TAuthController.Refresh: TTokenDTO;
+var
+  LUsuarioID: Int64;
+  LNombre, LApellido, LValue: String;
+begin
+  // Todo sale de Context.LoggedUser (JWT actual, ya validado por
+  // TMVCJWTAuthenticationMiddleware antes de que la request llegue aqui) --
+  // mismo patron que GetMe. Nada de esto viene del body ni del query string.
+  LUsuarioID := 0;
+  LNombre := '';
+  LApellido := '';
+  if Assigned(Context.LoggedUser.CustomData) then
+  begin
+    if Context.LoggedUser.CustomData.TryGetValue('usuarioId', LValue) then
+      LUsuarioID := StrToInt64Def(LValue, 0);
+    if Context.LoggedUser.CustomData.TryGetValue('nombre', LValue) then
+      LNombre := LValue;
+    if Context.LoggedUser.CustomData.TryGetValue('apellido', LValue) then
+      LApellido := LValue;
+  end;
+
+  Result := TTokenDTO.Create;
+  Result.Token := fAuthTokenService.GenerateToken(LUsuarioID, Context.LoggedUser.UserName,
+    Context.LoggedUser.Roles.ToArray, LNombre, LApellido);
 end;
 
 end.
